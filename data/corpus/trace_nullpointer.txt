@@ -1,0 +1,10 @@
+ERROR 2026-07-24T11:44:05Z [capture-worker] Uncaught exception while capturing payment
+java.lang.NullPointerException: Cannot invoke "PaymentGateway.capture(String)" because
+        "this.gateway" is null
+    at com.example.payments.CaptureWorker.capture(CaptureWorker.java:87)
+    at com.example.payments.CaptureWorker.processBatch(CaptureWorker.java:54)
+    at com.example.payments.Scheduler.run(Scheduler.java:33)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: payment_id=pay_8fk2ld93, gateway=PRIMARY, attempt=2
+Resolution hint: the primary gateway client was not initialized; see
+runbook_gateway_timeouts for failover guidance.

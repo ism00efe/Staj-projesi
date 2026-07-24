@@ -1,0 +1,41 @@
+# Docker Compose for the Payment Systems RAG Assistant.
+#
+# By default the app container reuses the Ollama instance running on your HOST
+# (so it benefits from your GPU). Make sure Ollama is running on the host and the
+# model is pulled:  ollama pull qwen2.5:7b-instruct
+#
+# Prefer a fully self-contained stack instead? Uncomment the `ollama` service below
+# and set OLLAMA_BASE_URL to http://ollama:11434 (note: CPU-only unless you configure
+# GPU passthrough, so generation will be slower).
+
+services:
+  app:
+    build: .
+    ports:
+      - "7860:7860"
+    environment:
+      LLM_PROVIDER: ollama
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+      OLLAMA_MODEL: qwen2.5:7b-instruct
+      EMBEDDING_MODEL: intfloat/multilingual-e5-small
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      CORPUS_DIR: /app/data/corpus
+      APP_HOST: 0.0.0.0
+      APP_PORT: "7860"
+    volumes:
+      - ./data:/app/data          # persist corpus, chroma index, and HF model cache
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # --- Optional self-contained Ollama service (CPU by default) -----------------------
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-models:/root/.ollama
+  #   # After `docker compose up`, pull the model once:
+  #   #   docker compose exec ollama ollama pull qwen2.5:7b-instruct
+
+# volumes:
+#   ollama-models:

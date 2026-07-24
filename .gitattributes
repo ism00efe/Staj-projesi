@@ -1,0 +1,5 @@
+# Normalize line endings. Keep shell scripts LF so the Docker entrypoint runs in Linux.
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary

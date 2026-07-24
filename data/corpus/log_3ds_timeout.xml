@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<paymentLog>
+  <timestamp>2026-07-24T10:02:11Z</timestamp>
+  <event>threeds.challenge</event>
+  <paymentId>pay_a1b2c3d4</paymentId>
+  <status>failed</status>
+  <errorCode>PAY-6006</errorCode>
+  <message>ACS did not return CRes before gateway_timeout</message>
+  <customerEmail>zeynep.demir@example.com</customerEmail>
+  <customerPhone>0555 987 65 43</customerPhone>
+  <clientIp>10.0.42.19</clientIp>
+  <authToken>Bearer eyJhbGciOiJIUzI1NidemodemodemodemodemodemoXVCJ9.payload.signature</authToken>
+</paymentLog>

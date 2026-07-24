@@ -1,0 +1,10 @@
+{"question": "Idempotency key nedir ve ne zaman kullanılmalı?", "expected_sources": ["concept_idempotency", "api_payments", "faq_general"]}
+{"question": "Bir ödeme insufficient funds hatası verdi, ne yapmalıyım?", "expected_sources": ["errorcodes_payment", "guide_declined_payments", "faq_general"]}
+{"question": "Gateway timeout olduğunda ödemeyi yeniden denemek güvenli mi?", "expected_sources": ["runbook_gateway_timeouts", "faq_general", "concept_retries_backoff"]}
+{"question": "3D Secure doğrulaması başarısız oluyor, nasıl çözerim?", "expected_sources": ["runbook_3ds_failures", "guide_declined_payments"]}
+{"question": "Webhook imza doğrulaması nasıl yapılır?", "expected_sources": ["guide_webhook_verification", "concept_webhooks"]}
+{"question": "Hangi ödeme hata kodları yeniden denenebilir?", "expected_sources": ["errorcodes_payment", "concept_retries_backoff"]}
+{"question": "Bir refund ne kadar sürede tamamlanır?", "expected_sources": ["api_refunds", "faq_general"]}
+{"question": "Settlement raporunda gecikme var, nasıl incelerim?", "expected_sources": ["runbook_settlement_delays"]}
+{"question": "PAY-5005 hata kodu ne anlama geliyor?", "expected_sources": ["errorcodes_payment", "runbook_3ds_failures"]}
+{"question": "Exponential backoff nedir ve retry için nasıl kullanılır?", "expected_sources": ["concept_retries_backoff"]}

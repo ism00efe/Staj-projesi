@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-07-24T09:15:32Z",
+  "level": "ERROR",
+  "service": "payment-gateway",
+  "event": "payment.declined",
+  "payment_id": "pay_8fk2ld93",
+  "error_code": "PAY-1001",
+  "decline_reason": "insufficient_funds",
+  "status": "declined",
+  "amount": 24990,
+  "currency": "TRY",
+  "customer": {
+    "email": "ahmet.yilmaz@example.com",
+    "phone": "+90 532 123 45 67",
+    "national_id": "10000000146"
+  },
+  "card": {
+    "pan": "4111 1111 1111 1111",
+    "expiry": "08/27"
+  },
+  "client_ip": "192.168.14.87",
+  "message": "Issuer declined the transaction: insufficient funds"
+}
