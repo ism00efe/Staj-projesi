@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<paymentLog>
+  <timestamp>2026-07-24T13:05:19Z</timestamp>
+  <event>payment.failed</event>
+  <paymentId>pay_pay5005q3</paymentId>
+  <status>failed</status>
+  <errorCode>PAY-5005</errorCode>
+  <declineReason>3ds_authentication_failed</declineReason>
+  <message>The 3-d secure challenge does not complete successfully</message>
+  <customerEmail>ops.pay5005@example.com</customerEmail>
+  <clientIp>192.168.7.31</clientIp>
+</paymentLog>

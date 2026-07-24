@@ -62,8 +62,21 @@ class AnthropicProvider:
         except requests.RequestException as exc:
             raise LLMError(f"Anthropic request failed: {exc}") from exc
         try:
-            return "".join(
+            content = "".join(
                 block["text"] for block in data["content"] if block.get("type") == "text"
             ).strip()
         except (KeyError, TypeError) as exc:
             raise LLMError(f"Unexpected Anthropic response: {data}") from exc
+
+        # Best-effort token usage logging. Never changes the return type.
+        usage = data.get("usage") or {}
+        if usage:
+            logger.info(
+                "llm usage",
+                extra={
+                    "status": "ok",
+                    "token_count": usage.get("output_tokens"),
+                    "prompt_token_count": usage.get("input_tokens"),
+                },
+            )
+        return content

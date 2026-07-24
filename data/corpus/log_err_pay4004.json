@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-24T12:04:07Z",
+  "level": "ERROR",
+  "service": "payment-gateway",
+  "event": "payment.failed",
+  "payment_id": "pay_pay4004x7",
+  "error_code": "PAY-4004",
+  "decline_reason": "do_not_honor",
+  "status": "failed",
+  "http_status": 402,
+  "customer": {
+    "email": "customer.pay4004@example.com",
+    "phone": "+90 533 000 11 22"
+  },
+  "card": { "pan": "4111 1111 1111 1111" },
+  "client_ip": "10.12.0.44",
+  "message": "A generic issuer refusal with no specific reason returned"
+}

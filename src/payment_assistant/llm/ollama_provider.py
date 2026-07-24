@@ -58,6 +58,21 @@ class OllamaProvider:
                 f"and the model '{self._model}' pulled? Original error: {exc}"
             ) from exc
         try:
-            return data["message"]["content"].strip()
+            content = data["message"]["content"].strip()
         except (KeyError, TypeError) as exc:
             raise LLMError(f"Unexpected Ollama response: {data}") from exc
+
+        # Best-effort token usage logging (Ollama includes it in the non-streaming
+        # response). Never changes the return type — logged only, not surfaced.
+        token_count = data.get("eval_count")
+        prompt_token_count = data.get("prompt_eval_count")
+        if token_count is not None or prompt_token_count is not None:
+            logger.info(
+                "llm usage",
+                extra={
+                    "status": "ok",
+                    "token_count": token_count,
+                    "prompt_token_count": prompt_token_count,
+                },
+            )
+        return content

@@ -10,9 +10,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from ..models import Chunk, Document
+from ..sanitization import sanitize
 from .embeddings import EmbeddingProvider
-from .models import Chunk, Document
-from .sanitization import sanitize
 from .vectorstore import VectorStore
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,28 @@ def _infer_title(text: str, fallback: str) -> str:
     return fallback
 
 
+def _unique_id(path: Path, seen: set[str]) -> str:
+    """Derive a stable, collision-free document id from a file path.
+
+    The id is the filename stem, which keeps ids readable and stable. Two files can share
+    a stem (``report.pdf`` / ``report.docx``, or our ``log_err_x.json`` / ``.xml``), so a
+    collision falls back to appending the extension, then a counter. Without this, both
+    documents would produce identical chunk ids and silently overwrite each other in the
+    vector store. Iteration order is sorted, so ids are deterministic across runs.
+    """
+
+    doc_id = path.stem
+    if doc_id in seen:
+        doc_id = f"{path.stem}_{path.suffix.lstrip('.').lower()}"
+        counter = 2
+        base = doc_id
+        while doc_id in seen:  # pragma: no cover - needs a stem *and* stem+ext collision
+            doc_id = f"{base}_{counter}"
+            counter += 1
+    seen.add(doc_id)
+    return doc_id
+
+
 def load_corpus(corpus_dir: str) -> list[Document]:
     """Read every supported file under ``corpus_dir`` into a :class:`Document`.
 
@@ -64,6 +86,7 @@ def load_corpus(corpus_dir: str) -> list[Document]:
         )
 
     documents: list[Document] = []
+    seen_ids: set[str] = set()
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.suffix.lower() not in _TEXT_SUFFIXES:
             continue
@@ -71,7 +94,7 @@ def load_corpus(corpus_dir: str) -> list[Document]:
         clean = sanitize(raw)  # SECURITY: sanitize before anything downstream
         documents.append(
             Document(
-                id=path.stem,
+                id=_unique_id(path, seen_ids),
                 title=_infer_title(clean, path.stem),
                 doc_type=_infer_doc_type(path.name),
                 text=clean,

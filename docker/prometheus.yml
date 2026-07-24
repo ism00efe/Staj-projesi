@@ -1,0 +1,11 @@
+# Minimal Prometheus scrape config for the Payment Systems RAG Assistant.
+# Used by docker-compose.observability.yml. The app must be started with
+# METRICS_ENABLED=true so /metrics is actually served on :9090.
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: payment-assistant
+    static_configs:
+      - targets: ["app:9090"]

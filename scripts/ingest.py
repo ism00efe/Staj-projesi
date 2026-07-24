@@ -8,9 +8,9 @@ from __future__ import annotations
 import _bootstrap  # noqa: F401  (adds src/ to sys.path)
 
 from payment_assistant.config import configure_logging, get_settings
-from payment_assistant.embeddings import SentenceTransformerEmbeddings
-from payment_assistant.ingestion import ingest
-from payment_assistant.vectorstore import ChromaVectorStore
+from payment_assistant.rag.embeddings import SentenceTransformerEmbeddings
+from payment_assistant.rag.ingestion import ingest
+from payment_assistant.rag.vectorstore import ChromaVectorStore
 
 
 def main() -> None:
@@ -29,7 +29,7 @@ def main() -> None:
         reset=True,
     )
     print(f"Indexed {count} chunks. Vector store now holds {store.count()} vectors.")
-    print("Next: python -m payment_assistant.app   (or: python scripts/run_app.py)")
+    print("Next: python scripts/run_app.py   (or: python -m payment_assistant.ui.app)")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import _bootstrap  # noqa: F401  (adds src/ to sys.path)
 
-from payment_assistant.app import main
+from payment_assistant.ui.app import main
 
 if __name__ == "__main__":
     main()

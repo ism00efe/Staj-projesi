@@ -1,0 +1,6 @@
+ERROR 2026-07-24T14:05:00Z [payments-worker] Unhandled exception
+com.fasterxml.jackson.core.JsonParseException: Unexpected character ('<' (code 60))
+    at com.example.payments.WebhookParser.parse(WebhookParser.java:61)
+    at com.example.payments.Dispatcher.dispatch(Dispatcher.java:75)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=json_parse, attempt=2

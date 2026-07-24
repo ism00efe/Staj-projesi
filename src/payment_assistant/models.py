@@ -74,3 +74,4 @@ class Answer:
     citations: list[Citation]
     retrieved: list[RetrievedChunk]
     redactions: list[str] = field(default_factory=list)
+    trace_id: str = ""

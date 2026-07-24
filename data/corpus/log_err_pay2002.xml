@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<paymentLog>
+  <timestamp>2026-07-24T13:02:19Z</timestamp>
+  <event>payment.failed</event>
+  <paymentId>pay_pay2002q3</paymentId>
+  <status>failed</status>
+  <errorCode>PAY-2002</errorCode>
+  <declineReason>invalid_card</declineReason>
+  <message>The card number fails validation before reaching the issuer</message>
+  <customerEmail>ops.pay2002@example.com</customerEmail>
+  <clientIp>192.168.7.31</clientIp>
+</paymentLog>

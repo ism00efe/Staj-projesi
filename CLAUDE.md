@@ -31,7 +31,7 @@ Persistent, every-session rules for this project. Read before making changes.
 - Keep these layers separated: UI · application service · RAG pipeline · LLM provider ·
   vector store · embeddings · sanitization · data generation · data ingestion ·
   configuration.
-- The UI (`app.py`) must contain **no** business logic — it only calls the application
+- The UI (`ui/app.py`) must contain **no** business logic — it only calls the application
   service (`service.py`).
 - The core RAG system must not know whether documents are synthetic or real. Swapping the
   corpus must not require touching the pipeline.
@@ -72,5 +72,16 @@ Persistent, every-session rules for this project. Read before making changes.
 - Vector store: ChromaDB (local, persistent)
 - LLM: provider abstraction; default = Ollama (`qwen2.5:7b-instruct`)
 - RAG: minimal hand-rolled pipeline
+- Retrieval: dense + hand-rolled BM25 fused with RRF, behind a `Retriever` protocol;
+  cross-encoder re-ranking (on by default; needs CUDA torch to be fast). Any re-ranker
+  **must be multilingual** (Turkish queries against English documents) — English-only
+  MS-MARCO models degrade ranking.
 - UI: Gradio, Turkish labels; English knowledge base, Turkish answers
-- Deploy: Dockerfile + docker-compose (no Kubernetes)
+- Observability: structured (JSON) logging with a propagated `trace_id`
+  (`contextvars`-based, no signature changes), Prometheus metrics (collection always on,
+  `/metrics` server opt-in via `METRICS_ENABLED`)
+- Security: PII sanitization (`sanitization.py`) + a deterministic prompt-injection guard
+  (`security/guard.py`), both regex-based, no LLM — see DECISIONS.md D18/D19 for scope
+  and documented limitations
+- Deploy: Dockerfile + docker-compose (no Kubernetes); optional
+  `docker-compose.observability.yml` overlay (Prometheus + Grafana)

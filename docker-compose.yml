@@ -13,6 +13,7 @@ services:
     build: .
     ports:
       - "7860:7860"
+      - "9090:9090"   # Prometheus /metrics — harmless if METRICS_ENABLED=false
     environment:
       LLM_PROVIDER: ollama
       OLLAMA_BASE_URL: http://host.docker.internal:11434
@@ -22,6 +23,8 @@ services:
       CORPUS_DIR: /app/data/corpus
       APP_HOST: 0.0.0.0
       APP_PORT: "7860"
+      METRICS_ENABLED: "false"   # flip to true (or use the observability overlay)
+      METRICS_PORT: "9090"
     volumes:
       - ./data:/app/data          # persist corpus, chroma index, and HF model cache
     extra_hosts:

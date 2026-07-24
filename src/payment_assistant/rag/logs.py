@@ -45,6 +45,14 @@ def _summarize_json(text: str) -> str | None:
 
 
 def _summarize_xml(text: str) -> str | None:
+    # SECURITY: reject any DOCTYPE/ENTITY declaration before parsing. Python's
+    # ElementTree does not resolve *external* entities (unlike lxml), so this isn't
+    # classic XXE file-read/SSRF — but internal entity expansion ("billion laughs") can
+    # still blow up memory/CPU from a tiny payload. Rejecting outright is simpler and
+    # safer than trying to bound expansion, and the caller falls back to treating the
+    # text as an opaque raw string, which is still useful.
+    if re.search(r"<!(DOCTYPE|ENTITY)\b", text, re.IGNORECASE):
+        return None
     try:
         root = ET.fromstring(text)
     except ET.ParseError:

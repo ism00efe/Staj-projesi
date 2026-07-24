@@ -11,9 +11,9 @@ import logging
 
 import gradio as gr
 
-from .config import configure_logging, get_settings
-from .models import Answer
-from .service import AssistantService, build_service
+from ..config import configure_logging, get_settings
+from ..models import Answer
+from ..service import AssistantService, build_service
 
 logger = logging.getLogger(__name__)
 
@@ -47,34 +47,45 @@ def _format_answer(answer: Answer) -> tuple[str, str, str]:
         info_md = "🔒 Maskelenen hassas veriler: " + ", ".join(answer.redactions)
     else:
         info_md = "🔒 Girdide maskelenecek hassas veri bulunmadı."
+    if answer.trace_id:
+        info_md += f"\n\n🔎 `trace_id: {answer.trace_id}`"
 
     return answer_md, sources_md, info_md
+
+
+def _resolve_upload_path(file_obj) -> str | None:
+    """Gradio's File returns a str path (type="filepath") or an object with .name,
+    depending on version; normalize both to a path (or None)."""
+
+    if file_obj is None:
+        return None
+    if isinstance(file_obj, str):
+        return file_obj
+    return file_obj.name
+
+
+def handle_query(service: AssistantService, question: str, file_obj) -> tuple[str, str, str]:
+    """Handle one UI submission end to end and return (answer, sources, info) markdown.
+
+    Extracted from the button callback so it can be unit-tested without a live server.
+    """
+
+    file_path = _resolve_upload_path(file_obj)
+    if not (question and question.strip()) and not file_path:
+        return ("Lütfen bir soru yazın veya bir log dosyası yükleyin.", "", "")
+    try:
+        answer = service.ask_with_log_file(question, file_path)
+    except Exception as exc:  # surface errors to the user instead of crashing the UI
+        logger.exception("Query failed")
+        return (f"⚠️ Bir hata oluştu: {exc}", "", "")
+    return _format_answer(answer)
 
 
 def build_ui(service: AssistantService) -> gr.Blocks:
     """Construct the Gradio Blocks app around an existing service."""
 
-    def on_submit(question: str, file_obj) -> tuple[str, str, str]:
-        # Gradio's File returns a str path (type="filepath") or an object with .name
-        # depending on version; handle both.
-        if file_obj is None:
-            file_path = None
-        elif isinstance(file_obj, str):
-            file_path = file_obj
-        else:
-            file_path = file_obj.name
-        if not (question and question.strip()) and not file_path:
-            return (
-                "Lütfen bir soru yazın veya bir log dosyası yükleyin.",
-                "",
-                "",
-            )
-        try:
-            answer = service.ask_with_log_file(question, file_path)
-        except Exception as exc:  # surface errors to the user instead of crashing the UI
-            logger.exception("Query failed")
-            return (f"⚠️ Bir hata oluştu: {exc}", "", "")
-        return _format_answer(answer)
+    def on_submit(question: str, file_obj) -> tuple[str, str, str]:  # pragma: no cover
+        return handle_query(service, question, file_obj)  # (wiring; logic tested above)
 
     with gr.Blocks(title="Ödeme Sistemleri Asistanı") as demo:
         gr.Markdown(
@@ -118,7 +129,7 @@ def build_ui(service: AssistantService) -> gr.Blocks:
     return demo
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover - launch glue, exercised manually
     configure_logging()
     settings = get_settings()
     service = build_service(settings)
@@ -127,5 +138,5 @@ def main() -> None:
     demo.launch(server_name=settings.app_host, server_port=settings.app_port)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

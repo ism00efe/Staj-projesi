@@ -66,6 +66,19 @@ class OpenAIProvider:
         except requests.RequestException as exc:
             raise LLMError(f"OpenAI request failed: {exc}") from exc
         try:
-            return data["choices"][0]["message"]["content"].strip()
+            content = data["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"Unexpected OpenAI response: {data}") from exc
+
+        # Best-effort token usage logging. Never changes the return type.
+        usage = data.get("usage") or {}
+        if usage:
+            logger.info(
+                "llm usage",
+                extra={
+                    "status": "ok",
+                    "token_count": usage.get("completion_tokens"),
+                    "prompt_token_count": usage.get("prompt_tokens"),
+                },
+            )
+        return content

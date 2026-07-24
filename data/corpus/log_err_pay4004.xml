@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<paymentLog>
+  <timestamp>2026-07-24T13:04:19Z</timestamp>
+  <event>payment.failed</event>
+  <paymentId>pay_pay4004q3</paymentId>
+  <status>failed</status>
+  <errorCode>PAY-4004</errorCode>
+  <declineReason>do_not_honor</declineReason>
+  <message>A generic issuer refusal with no specific reason returned</message>
+  <customerEmail>ops.pay4004@example.com</customerEmail>
+  <clientIp>192.168.7.31</clientIp>
+</paymentLog>

@@ -7,7 +7,7 @@ hallucination and to force citations.
 
 from __future__ import annotations
 
-from .models import RetrievedChunk
+from ..models import RetrievedChunk
 
 PROMPT_VERSION = "v1"
 

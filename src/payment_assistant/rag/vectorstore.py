@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
-from .models import Chunk, RetrievedChunk
+from ..models import Chunk, RetrievedChunk
 
 logger = logging.getLogger(__name__)
 

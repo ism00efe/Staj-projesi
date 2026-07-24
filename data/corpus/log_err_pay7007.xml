@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<paymentLog>
+  <timestamp>2026-07-24T13:07:19Z</timestamp>
+  <event>payment.failed</event>
+  <paymentId>pay_pay7007q3</paymentId>
+  <status>failed</status>
+  <errorCode>PAY-7007</errorCode>
+  <declineReason>duplicate_transaction</declineReason>
+  <message>A charge matching an already-processed request is submitted again</message>
+  <customerEmail>ops.pay7007@example.com</customerEmail>
+  <clientIp>192.168.7.31</clientIp>
+</paymentLog>
