@@ -12,17 +12,25 @@ dependencies = [
     "pydantic-settings>=2.2",
     "chromadb>=0.5",
     "sentence-transformers>=3.0",
-    "gradio>=4.44",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
     "requests>=2.31",
     "numpy>=1.26",
     "prometheus-client>=0.20",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6", "mypy>=1.11"]
+# httpx is required by starlette.testclient (TestClient), not by the app itself.
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6", "mypy>=1.11", "httpx>=0.27,<0.29"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# The web UI ships as static assets inside the package, so `pip install .` (what the
+# Dockerfile does) must carry them into the wheel. Extensions are listed explicitly so an
+# editor backup or a stray .env in that directory can never be packaged.
+[tool.setuptools.package-data]
+"payment_assistant.ui" = ["static/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "."]
@@ -47,15 +55,6 @@ ignore_missing_imports = true
 disallow_untyped_defs = false
 warn_unused_ignores = true
 exclude = ["tests/", "scripts/", "eval/"]
-
-# Gradio's component classes gain methods (.click, .change, ...) via runtime mixins
-# whose visibility to static analysis is inconsistent across gradio releases (verified
-# locally on 6.20.0 vs. what CI resolved). Skip following into it rather than chase a
-# moving target.
-[[tool.mypy.overrides]]
-module = ["gradio", "gradio.*"]
-follow_imports = "skip"
-ignore_missing_imports = true
 
 [tool.coverage.run]
 source = ["payment_assistant"]

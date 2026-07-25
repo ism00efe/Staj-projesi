@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Container entrypoint: ensure the corpus exists and is indexed, then launch the UI.
+# Container entrypoint: ensure the corpus exists and is indexed, then serve the app.
 # Idempotent — safe to run on every container start (data persists via the mounted volume).
 set -euo pipefail
 
@@ -13,5 +13,5 @@ fi
 echo "[entrypoint] Ingesting corpus into the vector store..."
 python scripts/ingest.py
 
-echo "[entrypoint] Launching Gradio app on ${APP_HOST:-0.0.0.0}:${APP_PORT:-7860}..."
+echo "[entrypoint] Launching API + web UI on ${APP_HOST:-0.0.0.0}:${APP_PORT:-7860}..."
 exec python scripts/run_app.py

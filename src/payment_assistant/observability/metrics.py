@@ -34,6 +34,18 @@ RETRIEVER_STRATEGY = Counter(
     "rag_retriever_strategy_total", "Requests handled, by retriever strategy", ["strategy"]
 )
 
+# Transport-layer metrics live in their own `api_*` namespace rather than extending
+# `rag_*`: `rag_requests_total{status}` counts answers the *engine* produced, so reusing
+# it for HTTP would double-count the same request at two different layers. `endpoint` is
+# always a fixed route template (never a raw request path, which would be unbounded
+# cardinality and could carry user content); `outcome` is a fixed word set.
+API_REQUESTS = Counter(
+    "api_requests_total", "HTTP API requests, by endpoint and outcome", ["endpoint", "outcome"]
+)
+API_REQUEST_DURATION = Histogram(
+    "api_request_duration_seconds", "HTTP API request duration", ["endpoint"]
+)
+
 _server_started = False
 
 

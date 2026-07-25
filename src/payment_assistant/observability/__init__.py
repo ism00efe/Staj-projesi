@@ -20,6 +20,8 @@ from .logging_context import (
     new_trace_id,
 )
 from .metrics import (
+    API_REQUEST_DURATION,
+    API_REQUESTS,
     REDACTIONS,
     REQUEST_COUNT,
     RETRIEVER_STRATEGY,
@@ -57,6 +59,8 @@ __all__ = [
     "STAGE_DURATION",
     "REDACTIONS",
     "RETRIEVER_STRATEGY",
+    "API_REQUESTS",
+    "API_REQUEST_DURATION",
     "record_redactions",
     "start_metrics_server",
 ]

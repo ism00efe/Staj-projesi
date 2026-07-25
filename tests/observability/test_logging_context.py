@@ -50,6 +50,20 @@ def test_bind_trace_id_accepts_explicit_id():
         assert get_trace_id() == "abc123"
 
 
+def test_bind_trace_id_inherits_an_outer_id_when_not_given():
+    """A nested bind must not split one request across two ids.
+
+    The HTTP API binds an id per request and RAGEngine.answer() binds again inside it;
+    if the inner call minted a fresh id, the api-level and pipeline log lines for the
+    same request would no longer join.
+    """
+
+    with bind_trace_id("outer"):
+        with bind_trace_id() as inner:
+            assert inner == "outer"
+            assert get_trace_id() == "outer"
+
+
 def test_bind_trace_id_restores_previous_on_exit():
     with bind_trace_id("outer"):
         with bind_trace_id("inner"):

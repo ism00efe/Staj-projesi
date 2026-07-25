@@ -71,6 +71,24 @@ class Settings(BaseSettings):
     app_port: int = Field(default=7860)
     ui_language: str = Field(default="tr")
 
+    # --- HTTP API -------------------------------------------------------------
+    # Whole-request cap, enforced before the body is read. Deliberately larger than
+    # MAX_UPLOAD_BYTES: the log text is JSON-escaped inside the request body, so the
+    # envelope is always bigger than the payload it carries.
+    api_max_body_bytes: int = Field(default=5_000_000)  # 5 MB
+
+    # Per-process, best-effort rate limiting. Not a substitute for a reverse proxy in a
+    # multi-replica deployment — see DECISIONS.md D23.
+    api_rate_limit_enabled: bool = Field(default=True)
+    api_rate_limit_requests: int = Field(default=30)
+    api_rate_limit_window_seconds: float = Field(default=60.0)
+
+    # How many reverse-proxy hops to trust in X-Forwarded-For. 0 (the default) means the
+    # header is ignored entirely and the socket peer is used. Only raise this when a
+    # proxy you control actually sits in front of the app: every hop you trust is one an
+    # attacker can forge to evade the rate limit.
+    api_trusted_proxy_hops: int = Field(default=0)
+
     # --- Logging ----------------------------------------------------------
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")  # json | text

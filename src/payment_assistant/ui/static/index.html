@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ödeme Sistemleri Asistanı</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="masthead">
+    <div class="masthead__inner">
+      <h1>Ödeme Sistemleri Bilgi &amp; Log Analiz Asistanı</h1>
+      <p class="masthead__sub">
+        Bir sorun giderme sorusu sorun veya bir log dosyasının içeriğini gönderin.
+        Yanıtlar kurum bilgi tabanındaki kaynaklara dayandırılır.
+      </p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ---------------------------------------------------------------- form -->
+    <section class="panel panel--form" aria-labelledby="form-heading">
+      <h2 id="form-heading" class="panel__title">Sorgu</h2>
+
+      <form id="query-form" novalidate>
+        <label class="field__label" for="question">Sorunuz</label>
+        <textarea
+          id="question"
+          name="question"
+          rows="5"
+          placeholder="Örn: 3D Secure doğrulaması neden timeout veriyor?"
+        ></textarea>
+
+        <p class="field__hint">Sık sorulanlar:</p>
+        <div class="chips" id="examples">
+          <button type="button" class="chip">Bir ödeme "insufficient funds" hatası verdi, ne yapmalıyım?</button>
+          <button type="button" class="chip">Idempotency key ne işe yarar ve nasıl kullanılır?</button>
+          <button type="button" class="chip">Webhook imza doğrulaması nasıl yapılır?</button>
+        </div>
+
+        <label class="field__label" for="logfile">Log dosyası <span class="field__optional">(opsiyonel)</span></label>
+        <div class="file">
+          <input
+            type="file"
+            id="logfile"
+            accept=".json,.xml,.txt,.log"
+            aria-describedby="file-status"
+          >
+          <p id="file-status" class="file__status" role="status">Dosya seçilmedi.</p>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="submit" class="btn btn--primary">Sorgula</button>
+          <button type="button" id="clear" class="btn btn--ghost">Temizle</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ------------------------------------------------------------- results -->
+    <section class="panel panel--results" aria-labelledby="results-heading">
+      <h2 id="results-heading" class="panel__title">Sonuç</h2>
+
+      <div id="placeholder" class="placeholder">
+        <p>Sorgu göndermek için soldaki formu doldurun.</p>
+        <p id="kb-status" class="placeholder__meta"></p>
+      </div>
+
+      <div id="loading" class="loading" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <p>Kaynaklar taranıyor ve yanıt hazırlanıyor…</p>
+      </div>
+
+      <div id="results" hidden>
+        <article class="card">
+          <h3 class="card__title">Analiz Sonucu</h3>
+          <div id="answer" class="card__body answer"></div>
+        </article>
+
+        <article class="card" id="sources-card">
+          <details open>
+            <summary class="card__title card__title--summary">
+              <span id="sources-title">Kullanılan Kaynaklar</span>
+              <span class="count" id="sources-count"></span>
+            </summary>
+            <div id="sources" class="card__body"></div>
+          </details>
+        </article>
+
+        <article class="card" id="security-card" hidden>
+          <h3 class="card__title">Güvenlik Özeti</h3>
+          <div id="security" class="card__body"></div>
+        </article>
+
+        <p class="trace">İzleme kimliği: <code id="trace-id"></code></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

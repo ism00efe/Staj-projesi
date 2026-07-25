@@ -29,6 +29,12 @@ data/chroma/
 htmlcov/
 coverage.xml
 
+# Visual Studio extension build output (vsix/)
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+
 # OS / editor
 .DS_Store
 Thumbs.db

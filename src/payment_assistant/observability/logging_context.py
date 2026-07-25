@@ -25,7 +25,11 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import UTC, datetime
 
-_trace_id_var: ContextVar[str] = ContextVar("trace_id", default="-")
+# Sentinel for "no trace bound". Rendered into logs as-is so an unbound line is
+# visually obvious rather than silently blank.
+_UNBOUND = "-"
+
+_trace_id_var: ContextVar[str] = ContextVar("trace_id", default=_UNBOUND)
 
 # Fixed, known set of structured fields a log record may carry. Keeping this explicit
 # (rather than dumping the whole record.__dict__) means the JSON schema is stable and
@@ -44,6 +48,11 @@ _EXTRA_FIELDS = (
     "token_count",
     "prompt_token_count",
     "error",
+    # HTTP layer. An int from a fixed set — PII-safe by construction. Note what is
+    # deliberately absent: the client IP. IP addresses are one of the six categories
+    # `sanitization.py` exists to mask, so the API keys its rate limiter on the address
+    # in memory and never logs it.
+    "status_code",
 )
 
 
@@ -59,15 +68,30 @@ def get_trace_id() -> str:
     return _trace_id_var.get()
 
 
+def has_trace_id() -> bool:
+    """True when a trace id is currently bound."""
+
+    return _trace_id_var.get() != _UNBOUND
+
+
 @contextmanager
 def bind_trace_id(trace_id: str | None = None) -> Iterator[str]:
-    """Bind ``trace_id`` (or a freshly generated one) for the duration of the block.
+    """Bind ``trace_id`` for the duration of the block.
 
     Every log record emitted anywhere during the block — including from nested calls
     that never see ``trace_id`` as a parameter — picks it up via :class:`TraceIdFilter`.
+
+    With no argument, an id already bound by an outer scope is *inherited* rather than
+    replaced, and only a genuinely unbound context mints a new one. That matters because
+    the layer that opens a request (the HTTP API) and the layer that does the work
+    (``RAGEngine.answer``) both bind: without inheritance one request would be split
+    across two ids, and the api-level line for a failed request could not be joined to
+    the pipeline line that explains the failure. Passing an explicit id always wins, so a
+    caller that means to start a distinct trace still can.
     """
 
-    tid = trace_id or new_trace_id()
+    current = _trace_id_var.get()
+    tid = trace_id or (current if current != _UNBOUND else new_trace_id())
     token = _trace_id_var.set(tid)
     try:
         yield tid
