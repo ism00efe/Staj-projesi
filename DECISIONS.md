@@ -621,12 +621,20 @@ Non-critical implementation assumptions are appended at the bottom as they are m
 ## D24 — Visual Studio extension: classic VSSDK, shipped uncompiled
 - **What:** `vsix/` adds a VS 2022/2026 extension with two context-menu commands and a
   dockable result tool window, calling the same `/api/analyze` endpoint.
-- **Shipped without ever being compiled**, and labelled as such in `vsix/BUILD.md`, the
-  commit message, and the README. It was authored on a machine with no Visual Studio IDE,
-  no VS SDK, and no .NET SDK — only headless Build Tools, which cannot build a VSIX.
-  Recording this because an unverified artifact that *looks* finished is a trap: BUILD.md
-  lists the specific places a first build is most likely to fail rather than leaving them
-  to be discovered.
+- **Builds clean; runtime still unverified.** It was initially committed as
+  *uncompiled*, on the belief that the machine lacked the VS SDK and the .NET Framework
+  targeting pack. That was wrong — both checks had looked in the wrong place. The VSSDK
+  MSBuild targets ship with *Build Tools* (under
+  `MSBuild\Microsoft\VisualStudio\v18.0\VSSDK\`, not at the install root), and the v4.7.2
+  targeting pack was present. `msbuild /p:Configuration=Release /restore` produces a valid
+  VSIX with 0 errors and 0 warnings, and the generated `.pkgdef` shows the package,
+  command table, tool window, and options page all registering correctly. Only one real
+  defect surfaced: `await TaskScheduler.Default` needs
+  `using Microsoft.VisualStudio.Threading`. What remains unverified is everything that
+  only happens at runtime — menu placement, WPF/theme binding, `DTE` interop — because
+  the machine has no IDE (`devenv.exe` genuinely absent) to install into. The distinction
+  matters and is kept explicit in `vsix/BUILD.md`: "compiles and registers" is a real
+  result, but it is not "works".
 - **Why classic VSSDK over VisualStudio.Extensibility:** the newer model is SDK-style and
   .NET 8, which reads more modern, but its tool windows and dialogs must be built with
   Remote UI — thinly documented and easy to get subtly wrong. For code no compiler here
@@ -648,8 +656,10 @@ Non-critical implementation assumptions are appended at the bottom as they are m
 - **Why `ErrorCodeScanner` has no VS dependency:** it is the only class here with real
   logic rather than shell plumbing, so keeping it a plain static class leaves the one
   piece worth testing testable without an IDE.
-- **CI is untouched:** `ubuntu-latest` cannot build a VSIX, and adding a Windows job for
-  an uncompiled project would only produce a red pipeline on day one.
+- **CI is untouched, for now:** `ubuntu-latest` cannot build a VSIX. Now that the build
+  is known-good on Build Tools, a `windows-latest` job running the same
+  `msbuild /restore` line is a cheap, worthwhile follow-up — it was only skipped
+  originally because a job for an uncompiled project would have been red on day one.
 
 ---
 

@@ -1,36 +1,46 @@
 # Building the Payment Assistant Visual Studio extension
 
-> **This project has not been compiled.** It was authored on a machine with no Visual
-> Studio IDE, no VS SDK, and no .NET SDK installed — only headless *Visual Studio Build
-> Tools*, which cannot build a VSIX. Treat the first build as part of the review: expect
-> to fix small compile errors, and read the [Known risks](#known-risks) section before
-> starting.
+**Status: builds clean.** Verified with *Visual Studio Build Tools 2026* (18.4) —
+0 errors, 0 warnings, VSCT clean — producing a valid `PaymentAssistant.vsix` whose
+`.pkgdef` registers the package, the command table, the tool window, and the
+Tools→Options page.
+
+> **Runtime behaviour is still unverified.** The build machine has no Visual Studio IDE
+> (`devenv.exe` is absent), so the extension has never actually been *installed and run*.
+> Menus appearing in the right place, the WPF tool window rendering, and the `DTE`
+> selection interop are all compile-checked but not exercised. See
+> [What is still unverified](#what-is-still-unverified).
 
 ## Prerequisites
 
-1. **Visual Studio 2022 (17.x) or Visual Studio 2026 (18.x)** — the full IDE. Build Tools
-   is not sufficient: a VSIX targets the IDE's extensibility host, which Build Tools does
-   not contain.
-2. The **"Visual Studio extension development"** workload. Install it from the Visual
-   Studio Installer (*Modify* → *Workloads*). This is what supplies the VS SDK, the VSCT
-   compiler, and the VSIX packaging targets.
-3. The **.NET Framework 4.7.2 targeting pack** (included with the workload above).
+Building does **not** require the full IDE — the VSSDK MSBuild targets ship with Build
+Tools:
+
+1. **Visual Studio Build Tools 2026 (18.x)** or the **Visual Studio 2022/2026 IDE**.
+2. The **.NET Framework 4.7.2 targeting pack** (`C:\Program Files (x86)\Reference
+   Assemblies\Microsoft\Framework\.NETFramework\v4.7.2`).
+3. Network access for the first NuGet restore (`Microsoft.VisualStudio.SDK`,
+   `Microsoft.VSSDK.BuildTools`).
+
+**Installing and debugging** the result does require the IDE, with the *Visual Studio
+extension development* workload.
 
 ## Build
 
-```
-git clone <this repo>
-cd vsix
-```
-
-Open `PaymentAssistant.sln` in Visual Studio and build (Ctrl+Shift+B), or from a
-*Developer Command Prompt*:
+From the repository root:
 
 ```
-msbuild PaymentAssistant.sln /p:Configuration=Release /restore
+msbuild vsix/PaymentAssistant.sln /p:Configuration=Release /restore
 ```
 
-The package lands at `PaymentAssistant/bin/Release/PaymentAssistant.vsix`.
+Or with an explicit path to Build Tools' MSBuild:
+
+```
+"C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\MSBuild\Current\Bin\MSBuild.exe" vsix/PaymentAssistant.sln /p:Configuration=Release /restore
+```
+
+`/restore` is needed on the first build only. The package lands at
+`vsix/PaymentAssistant/bin/Release/PaymentAssistant.vsix` (~23 KB).
 
 ## Debug
 
@@ -73,30 +83,42 @@ no background upload, and no implicit whole-file send. The no-selection path alw
 through the picker dialog; cancelling it sends nothing. Sensitive values are masked
 server-side before the text reaches retrieval or the model.
 
-## Known risks
+## What is verified
 
-Because the project has never been compiled, these are the places a first build is most
-likely to complain. None require redesign — they are version-pinning and reference
-details:
+The build proves more than "it compiles". The generated
+`bin/Release/PaymentAssistant.pkgdef` shows the shell registrations are correct, which is
+where a hand-written VSIX usually goes wrong:
 
-- **`Microsoft.VisualStudio.SDK` / `Microsoft.VSSDK.BuildTools` versions** in
-  `PaymentAssistant.csproj` are pinned to known-good 17.x releases. If NuGet restore
-  fails, update them to the latest 17.x available to you; the API surface used here
-  (`AsyncPackage`, `ToolWindowPane`, `DialogPage`, `OleMenuCommand`, `DialogWindow`) has
-  been stable across the whole 17.x line.
-- **XAML assembly references.** Both XAML files reference
-  `Microsoft.VisualStudio.Shell.15.0` for `VsBrushes` and `DialogWindow`. If the SDK
-  package resolves those types from a differently-named assembly, fix the `assembly=`
-  attribute in the two `xmlns:` declarations.
+| Registration | Evidence in the `.pkgdef` |
+|---|---|
+| Package, async-loadable | `[$RootKey$\Packages\{c425ce3c-…}]` with `AllowsBackgroundLoad=1` |
+| Command table | `[$RootKey$\Menus]` → `", Menus.ctmenu, 1"` |
+| Tool window | `[$RootKey$\ToolWindows\{ec725a02-…}]`, `Style=Tabbed` |
+| Options page | `[$RootKey$\ToolsOptionsPages\Payment Assistant\General]` |
+
+The VSCT compiler also reports `errors = 0, warnings = 0`, so the menu placements
+(`IDM_VS_CTXT_CODEWIN`, `IDM_VS_CTXT_ITEMNODE`) and the GUID/ID pairing between
+`PaymentAssistantPackage.vsct` and the C# `CommandId` constants resolve.
+
+## What is still unverified
+
+Everything that only happens at runtime, because there is no IDE here to run it in:
+
+- **The commands actually appearing** on the editor and Solution Explorer context menus,
+  and `BeforeQueryStatus` hiding the file command for non-log types.
+- **The WPF tool window rendering.** The XAML compiles to BAML, but `VsBrushes` theme
+  binding and the `DialogWindow` base class are only exercised when the shell loads them.
+- **`DTE` interop** — reading the editor selection and the Solution Explorer item.
 - **The tool-window dock target** in `PaymentAssistantPackage.cs` is the Output window's
-  well-known GUID. If it does not resolve, drop the `Window = ...` argument entirely — the
-  window then docks wherever the shell prefers, which is cosmetic only.
-- **GUID consistency.** `PaymentAssistantPackage.CommandSetGuid`,
-  `PaymentAssistantPackage.vsct`'s `guidPaymentAssistantCmdSet`, and the two
-  `CommandId` constants must agree. If a menu item appears but does nothing, that pairing
-  is where to look first.
+  well-known GUID. If the window docks oddly, drop the `Window = ...` argument; that is
+  cosmetic only.
+- **End-to-end against a live service** — the `HttpClient` call, the error envelope
+  mapping, and the threading (`SwitchToMainThreadAsync` / `await TaskScheduler.Default`).
+
+To exercise these, open the solution in the IDE and press **F5** (see [Debug](#debug)).
+
 - **CI does not build this.** The pipeline runs on `ubuntu-latest`, which cannot build a
-  VSIX. Verification is manual until there is a Windows runner.
+  VSIX. A Windows runner would now be worth adding, since the build is known to work.
 
 ## Layout
 

@@ -116,7 +116,7 @@ the web UI and the Visual Studio extension are both thin clients over it.
 |---|---|---|
 | Web UI | `http://127.0.0.1:7860/` | Two-panel page, Turkish labels, no framework |
 | REST API | `POST /api/analyze` | Interactive docs at `/docs` |
-| Visual Studio | `vsix/` | VS 2022/2026 extension — **not yet compiled**, see [`vsix/BUILD.md`](vsix/BUILD.md) |
+| Visual Studio | `vsix/` | VS 2022/2026 extension — builds clean; not yet run in an IDE, see [`vsix/BUILD.md`](vsix/BUILD.md) |
 
 ## Prerequisites
 
@@ -229,8 +229,17 @@ menus, with results in a dockable tool window. It never transmits anything witho
 explicit action: with no selection it scans `.log`/`.json`/`.xml` for error codes and asks
 which lines to send.
 
-> **Not yet compiled.** It was authored on a machine without the Visual Studio IDE or SDK.
-> See [`vsix/BUILD.md`](vsix/BUILD.md) for prerequisites and the known first-build risks.
+```bash
+msbuild vsix/PaymentAssistant.sln /p:Configuration=Release /restore
+# -> vsix/PaymentAssistant/bin/Release/PaymentAssistant.vsix
+```
+
+Builds clean (0 errors, 0 warnings) with Visual Studio Build Tools 2026 — the full IDE is
+needed only to install and debug it.
+
+> **Not yet run inside an IDE.** The build machine has no `devenv.exe`, so menu placement,
+> the WPF tool window, and the `DTE` interop are compile-checked but never exercised.
+> [`vsix/BUILD.md`](vsix/BUILD.md) spells out exactly what is and isn't verified.
 
 ## Observability
 
@@ -354,8 +363,8 @@ except the vector-store tests which run real Chroma in a temp dir. The API tests
 app through `TestClient`, so no server is started either. Coverage is ~99% of statements
 across the package (launch glue excluded).
 
-The C# extension under `vsix/` has no automated tests and is not built by CI — see
-[`vsix/BUILD.md`](vsix/BUILD.md).
+The C# extension under `vsix/` has no automated tests and is not built by CI (a VSIX needs
+a Windows runner). It does build locally — see [`vsix/BUILD.md`](vsix/BUILD.md).
 
 ## CI/CD
 
@@ -453,8 +462,9 @@ defense, upload/XXE hardening, rate limiting, XSS-safe rendering (`security/`, D
 1. Better synthetic generator (LLM-assisted, more variety).
 2. Retrieval quality: `bge-m3` embeddings; broader injection-guard coverage for
    Turkish-phrased attacks (see D18's documented limitation).
-3. Build and verify the Visual Studio extension on a machine with the VS SDK, then add a
-   Windows CI job for it (see [`vsix/BUILD.md`](vsix/BUILD.md)).
+3. Install the Visual Studio extension in an IDE and verify it end to end (it builds, but
+   has never been run); then add a `windows-latest` CI job for it — see
+   [`vsix/BUILD.md`](vsix/BUILD.md).
 4. Answer streaming (`text/event-stream` on the API, incremental render in the UI);
    conversation history.
 5. Move rate limiting to a reverse proxy (nginx/Traefik) once there's a real multi-user

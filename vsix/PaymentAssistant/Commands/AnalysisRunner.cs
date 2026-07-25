@@ -2,6 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
+// Supplies the awaiter for `await TaskScheduler.Default`, the JoinableTaskFactory idiom
+// for hopping off the UI thread.
+using Microsoft.VisualStudio.Threading;
 using PaymentAssistant.Api;
 using PaymentAssistant.Options;
 using PaymentAssistant.ToolWindows;
