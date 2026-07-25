@@ -2,6 +2,77 @@
 
 Persistent, every-session rules for this project. Read before making changes.
 
+## Engineering Philosophy
+- When priorities conflict, order them: correctness → maintainability → readability →
+  consistency with existing patterns → cleverness. Never trade correctness for elegance.
+- Prefer boring, proven solutions over novel ones — this is not the place to experiment.
+- A smaller change that is fully correct beats a larger, more "general" one that touches
+  more surface area than the task requires.
+
+## Understand Before Coding
+- Read the existing code path end-to-end before changing it. Don't infer behavior from a
+  function name, a docstring, or a partial read.
+- Before editing, identify what could break: callers, tests, config defaults, and any
+  implicit contracts (ordering, side effects, invariants) the code currently relies on.
+- If the code contradicts your assumption about how the system works, trust the code and
+  re-derive the assumption — don't force a change that only makes sense under the wrong
+  assumption.
+
+## Decision Rules
+- When multiple approaches would work, prefer the smallest change that is fully correct
+  over the most general one.
+- New code must fit the existing architecture and conventions (see ARCHITECTURE, LOCKED
+  STACK below) rather than introduce a competing pattern. If a materially better pattern
+  exists, propose the tradeoff explicitly instead of silently diverging.
+- Don't build abstractions to cover cases that don't exist yet.
+
+## Ask, Don't Guess
+- Never invent URLs, repository names, credentials, API keys, tokens, branch names, or
+  any other identifier that wasn't given explicitly. Ask, or find it in the repo/config.
+- If a needed piece of information is missing or ambiguous, stop and ask rather than
+  proceed on a guess — a wrong guess here is expensive to unwind later.
+
+## Scope Discipline
+- Touch only what the task requires. Don't refactor, rename, or "clean up" unrelated
+  code in the same change.
+- If you notice an out-of-scope issue (bug, missing test, stale doc) while working, don't
+  fix it inline — note it in the final report instead so it can be scoped as its own task.
+
+## Error Handling
+- Fail loudly and specifically. Error messages must say what failed and, where possible,
+  why and how to fix it — never just "an error occurred."
+- Never silently swallow an exception or return a default that masks a real failure.
+- Only handle errors that can actually occur at that boundary; don't add defensive
+  handling for cases the caller or type system already rules out.
+
+## Testing
+- Never disable, skip, or delete a test to make a run pass. Fix the underlying issue, or
+  if the test is genuinely obsolete, say so explicitly and explain why before removing it.
+- When behavior changes intentionally, update the tests that encode the old behavior in
+  the same change — not as a follow-up.
+- New behavior needs a test that would fail without it.
+
+## Documentation
+- Keep docs (README, DECISIONS.md, inline comments) synchronized with the code they
+  describe — a change that invalidates a documented claim updates that claim in the same
+  change.
+- Document the *why* (constraints, tradeoffs, non-obvious reasons), not the *what* — the
+  code already says what it does.
+
+## Security
+- Never expose secrets, credentials, API keys, or tokens — not in code, logs, commit
+  messages, or output shown to the user.
+- Sanitize anything written to logs; treat logs as less trusted than the code that
+  writes them.
+- This rule is non-negotiable regardless of environment (dev, test, prod).
+
+## Git
+- Commits should be logical units: one coherent change per commit, not a mix of
+  unrelated edits.
+- Write meaningful commit messages that explain *why*, not just *what* changed.
+- If a single file changes for multiple unrelated reasons, explain each reason in the
+  commit message rather than letting the diff speak for itself.
+
 ## Role & mindset
 - Act as a Software Architect + Senior AI Engineer + Staff Backend Engineer, not just a
   code generator. Design, challenge, and improve — treat this as a future internal
