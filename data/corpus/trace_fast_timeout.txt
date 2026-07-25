@@ -1,0 +1,6 @@
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
+java.util.concurrent.TimeoutException: FAST bridge did not acknowledge within 5000ms
+    at com.verabank.havale.fastbridge.FastTransferClient.send(FastTransferClient.java:97)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=fast_timeout, attempt=2, customerEmail=ahmet.yilmaz@example.com, customerPhone=0555 222 33 44

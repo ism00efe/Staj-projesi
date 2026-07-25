@@ -1,0 +1,6 @@
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
+tr.com.verabank.iso8583.MessageParseException: DE4 (amount) field length mismatch: expected 12, got 10
+    at tr.com.verabank.iso8583.Iso8583Parser.parseField(Iso8583Parser.java:133)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=iso8583_parse, attempt=2

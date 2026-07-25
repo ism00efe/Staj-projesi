@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-25T11:47:29Z",
+  "level": "INFO",
+  "service": "karti-odeme-motoru",
+  "event": "payment.approved",
+  "transactionId": "TRX-20260725-88340",
+  "mti": "0110",
+  "responseCode": "00",
+  "responseReason": "Approved",
+  "stan": "441511",
+  "rrn": "260725X23533",
+  "merchant": { "id": "MID-2002", "name": "Ege Market" },
+  "amount": 15975,
+  "currency": "TRY",
+  "threeDsResult": "authenticated",
+  "customer": { "email": "musteri.hizmetleri@example.com" },
+  "message": "Approved after 3DS challenge - see api_3ds_initiate.md"
+}

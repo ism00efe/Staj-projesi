@@ -1,50 +1,56 @@
-{"question": "PAY-1001 hata kodu ne anlama geliyor?", "expected_sources": ["runbook_err_pay1001", "errorcodes_payment"], "category": "lexical"}
-{"question": "PAY-2002 nedir ve nasıl düzeltilir?", "expected_sources": ["runbook_err_pay2002", "errorcodes_payment"], "category": "lexical"}
-{"question": "PAY-3003 hatası nasıl çözülür?", "expected_sources": ["runbook_err_pay3003", "errorcodes_payment"], "category": "lexical"}
-{"question": "PAY-4004 do_not_honor ne demek?", "expected_sources": ["runbook_err_pay4004", "errorcodes_payment"], "category": "lexical"}
-{"question": "PAY-5005 hata kodu ne anlama geliyor?", "expected_sources": ["runbook_err_pay5005", "errorcodes_payment", "runbook_3ds_failures"], "category": "lexical"}
-{"question": "PAY-6006 gateway_timeout için retry politikası nedir?", "expected_sources": ["runbook_err_pay6006", "runbook_gateway_timeouts"], "category": "lexical"}
-{"question": "PAY-7007 duplicate_transaction neden oluşur?", "expected_sources": ["runbook_err_pay7007"], "category": "lexical"}
-{"question": "PAY-8008 currency_not_supported nasıl düzeltilir?", "expected_sources": ["runbook_err_pay8008", "guide_currency_mismatch"], "category": "lexical"}
-{"question": "PAY-9009 fraud_suspected durumunda ne yapmalıyım?", "expected_sources": ["runbook_err_pay9009"], "category": "lexical"}
-{"question": "POST /v1/captures ne işe yarar?", "expected_sources": ["api_captures"], "category": "lexical"}
-{"question": "POST /v1/voids endpoint'i ne zaman kullanılır?", "expected_sources": ["api_voids"], "category": "lexical"}
-{"question": "GET /v1/disputes hangi bilgileri döner?", "expected_sources": ["api_disputes"], "category": "lexical"}
-{"question": "POST /v1/payouts nasıl çalışır?", "expected_sources": ["api_payouts"], "category": "lexical"}
-{"question": "POST /v1/tokens ile ne yapılır?", "expected_sources": ["api_tokens"], "category": "lexical"}
-{"question": "GET /v1/balances ne gösterir?", "expected_sources": ["api_balances"], "category": "lexical"}
-{"question": "POST /v1/subscriptions ile yinelenen ödeme nasıl kurulur?", "expected_sources": ["api_subscriptions"], "category": "lexical"}
-{"question": "POST /v1/customers ne için kullanılır?", "expected_sources": ["api_customers"], "category": "lexical"}
-{"question": "Idempotency-Key header'ı hangi isteklerde zorunlu?", "expected_sources": ["concept_idempotency", "api_payments", "faq_integration"], "category": "lexical"}
-{"question": "Müşterinin hesabında yeterli para yoksa ödemeye ne olur?", "expected_sources": ["runbook_err_pay1001", "errorcodes_payment", "guide_declined_payments"], "category": "semantic"}
-{"question": "Kartın son kullanma tarihi geçmişse ödeme neden reddedilir?", "expected_sources": ["runbook_err_pay3003"], "category": "semantic"}
-{"question": "Banka sebep belirtmeden ödemeyi geri çevirirse ne yapılır?", "expected_sources": ["runbook_err_pay4004"], "category": "semantic"}
-{"question": "Paranın hesabımıza geçmesi neden birkaç gün sürüyor?", "expected_sources": ["concept_settlement", "runbook_settlement_delays"], "category": "semantic"}
-{"question": "Müşteri bankasından ödemeyi geri istediğinde süreç nasıl işler?", "expected_sources": ["concept_chargebacks"], "category": "semantic"}
-{"question": "Kart bilgilerini kendi sunucumuzda saklamamak için ne yapmalıyız?", "expected_sources": ["concept_tokenization", "concept_pci_scope"], "category": "semantic"}
-{"question": "Farklı para biriminde işlem yapınca neden kur farkı oluşuyor?", "expected_sources": ["concept_fx_conversion"], "category": "semantic"}
-{"question": "Kayıtlarımız bankadan gelen dosyayla tutmuyorsa ne yapmalı?", "expected_sources": ["concept_reconciliation", "runbook_settlement_delays"], "category": "semantic"}
-{"question": "Hangi sistemler kart verisi güvenlik denetimine tabidir?", "expected_sources": ["concept_pci_scope"], "category": "semantic"}
-{"question": "Başarısız isteği tekrar denerken bekleme süresi nasıl ayarlanmalı?", "expected_sources": ["concept_retries_backoff", "guide_retry_storms"], "category": "semantic"}
-{"question": "Aynı ödemenin iki kez çekilmesini nasıl engelleriz?", "expected_sources": ["concept_idempotency", "runbook_err_pay7007"], "category": "semantic"}
-{"question": "Gelen bildirimlerin gerçekten bizden geldiğini nasıl doğrularız?", "expected_sources": ["guide_webhook_verification", "concept_webhooks", "faq_webhooks"], "category": "semantic"}
-{"question": "Kayıtlı kartlar toplu şekilde çalışmamaya başladı, sebebi ne olabilir?", "expected_sources": ["guide_saved_card_failures"], "category": "semantic"}
-{"question": "Olaylar bize saatler sonra ulaşıyor, nedeni nedir?", "expected_sources": ["guide_webhook_backlog"], "category": "semantic"}
-{"question": "Ön provizyon alınan tutarın bir kısmı tahsil edilemezse ne olur?", "expected_sources": ["guide_partial_captures"], "category": "semantic"}
-{"question": "Kesinti sonrası çok sayıda tekrar denemesi geldi, nasıl önlenir?", "expected_sources": ["guide_retry_storms", "concept_retries_backoff"], "category": "semantic"}
-{"question": "Risk motoru ödemeyi bankaya göndermeden engelledi, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_err_pay9009"], "category": "confusable"}
-{"question": "Doğrulama adımı tamamlanmadığı için ödeme başarısız oldu, ilgili prosedür hangisi?", "expected_sources": ["runbook_err_pay5005", "runbook_3ds_failures"], "category": "confusable"}
-{"question": "Üst sistem yanıt vermedi ve ödemenin durumu belirsiz, hangi prosedür geçerli?", "expected_sources": ["runbook_err_pay6006", "runbook_gateway_timeouts"], "category": "confusable"}
-{"question": "Kart numarası doğrulama kontrolünden geçmiyor, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_err_pay2002"], "category": "confusable"}
-{"question": "Hesapta tanımlı olmayan bir para birimi gönderildi, hangi prosedür?", "expected_sources": ["runbook_err_pay8008"], "category": "confusable"}
-{"question": "Anahtar yeniden kullanılmadığı için aynı işlem tekrar gönderildi, hangi prosedür?", "expected_sources": ["runbook_err_pay7007"], "category": "confusable"}
-{"question": "Webhook imza doğrulaması exception fırlatıyor, hangi hata izi?", "expected_sources": ["trace_signature_mismatch"], "category": "semantic"}
-{"question": "Ledger güncellenirken deadlock alıyoruz, hangi hata izi?", "expected_sources": ["trace_db_deadlock"], "category": "semantic"}
-{"question": "Webhook gövdesi JSON yerine HTML geldiğinde hangi hata oluşur?", "expected_sources": ["trace_json_parse"], "category": "semantic"}
-{"question": "Capture sırasında soket zaman aşımı alan hata izi hangisi?", "expected_sources": ["trace_timeout_capture"], "category": "semantic"}
-{"question": "Kayıtlı kartla ödemede token null geliyor, hangi hata izi?", "expected_sources": ["trace_null_token"], "category": "semantic"}
-{"question": "Bir refund ne kadar sürede tamamlanır?", "expected_sources": ["faq_refunds", "api_refunds", "faq_general"], "category": "semantic"}
-{"question": "Chargeback bize ne kadara mal olur?", "expected_sources": ["faq_fees", "concept_chargebacks"], "category": "semantic"}
-{"question": "Sandbox ortamında zaman aşımını nasıl test ederim?", "expected_sources": ["faq_testing"], "category": "semantic"}
-{"question": "Liste uçlarında sayfalama nasıl yapılır?", "expected_sources": ["faq_integration"], "category": "semantic"}
-{"question": "Abonelik ödemelerinde 3DS zorunlu mu?", "expected_sources": ["faq_threedsecure", "api_subscriptions"], "category": "semantic"}
+{"question": "RC-05 hata kodu ne anlama geliyor?", "expected_sources": ["runbook_rc05", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-12 nedir?", "expected_sources": ["runbook_rc12", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-14 hatası nasıl çözülür?", "expected_sources": ["runbook_rc14", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-30 format hatası ne demek?", "expected_sources": ["runbook_rc30", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-51 yetersiz bakiye hatası nasıl çözülür?", "expected_sources": ["runbook_rc51", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-54 kartın süresi dolmuş hatası nedir?", "expected_sources": ["runbook_rc54", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-62 kısıtlı kart hatası nasıl incelenir?", "expected_sources": ["runbook_rc62", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-91 issuer unavailable hatası ne zaman oluşur?", "expected_sources": ["runbook_rc91", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "RC-96 sistem hatası nasıl çözülür?", "expected_sources": ["runbook_rc96", "errorcodes_iso8583"], "category": "lexical"}
+{"question": "POST /v1/authorizations endpoint'i ne işe yarar?", "expected_sources": ["api_authorization"], "category": "lexical"}
+{"question": "POST /v1/captures ne zaman kullanılır?", "expected_sources": ["api_capture"], "category": "lexical"}
+{"question": "POST /v1/reversals nasıl çalışır?", "expected_sources": ["api_reversal"], "category": "lexical"}
+{"question": "POST /v1/refunds ile ne yapılır?", "expected_sources": ["api_refund"], "category": "lexical"}
+{"question": "POST /v1/tokens endpoint'i ne için kullanılır?", "expected_sources": ["api_tokenization"], "category": "lexical"}
+{"question": "POST /v1/3ds/initiate ne zaman çağrılır?", "expected_sources": ["api_3ds_initiate"], "category": "lexical"}
+{"question": "POST /v1/openbanking/payment-orders nasıl çalışır?", "expected_sources": ["api_openbanking_payment"], "category": "lexical"}
+{"question": "ARQC failure hatası nedir?", "expected_sources": ["runbook_arqc_failure", "errorcodes_emv"], "category": "lexical"}
+{"question": "Cryptogram mismatch hatası ne anlama gelir?", "expected_sources": ["runbook_cryptogram_mismatch", "errorcodes_emv"], "category": "lexical"}
+{"question": "Müşterinin hesabında para yoksa ödeme isteği ne olur?", "expected_sources": ["runbook_rc51", "errorcodes_iso8583"], "category": "semantic"}
+{"question": "Kartın son kullanma tarihi geçmişse işlem neden reddedilir?", "expected_sources": ["runbook_rc54"], "category": "semantic"}
+{"question": "Banka hiçbir sebep göstermeden işlemi reddederse ne yapmalıyım?", "expected_sources": ["runbook_rc05"], "category": "semantic"}
+{"question": "Kart yurt dışında kullanıma kapalıysa işlem nasıl reddedilir?", "expected_sources": ["runbook_rc62"], "category": "semantic"}
+{"question": "Kart çıkaran bankaya ulaşılamazsa provizyon isteğine ne olur?", "expected_sources": ["runbook_rc91"], "category": "semantic"}
+{"question": "İşlem mesajında zorunlu bir alan eksikse ne olur?", "expected_sources": ["runbook_rc30"], "category": "semantic"}
+{"question": "Kart numarası hatalı girilirse işlem ne olur?", "expected_sources": ["runbook_rc14"], "category": "semantic"}
+{"question": "Terminal desteklemediği bir işlem tipini gönderirse ne olur?", "expected_sources": ["runbook_rc12"], "category": "semantic"}
+{"question": "Ödeme motorunda beklenmedik bir hata oluşursa ne yapılır?", "expected_sources": ["runbook_rc96"], "category": "semantic"}
+{"question": "BKM nedir ve ne iş yapar?", "expected_sources": ["concept_bkm"], "category": "semantic"}
+{"question": "Troy kartı diğer kart şemalarından farklı mı çalışır?", "expected_sources": ["concept_troy", "faq_troy"], "category": "semantic"}
+{"question": "FAST ile para transferi ne kadar sürer?", "expected_sources": ["concept_fast_payments", "faq_fast"], "category": "semantic"}
+{"question": "Bir kartlı işlem yetkilendirmeden takasa kadar hangi aşamalardan geçer?", "expected_sources": ["concept_pos_atm_flow"], "category": "semantic"}
+{"question": "ISO 8583 mesaj formatı nasıl yapılandırılmıştır?", "expected_sources": ["concept_iso8583_overview"], "category": "semantic"}
+{"question": "Bankalar arası ödeme mesajlaşmasında SWIFT'in yeri nedir?", "expected_sources": ["concept_iso20022_swift"], "category": "semantic"}
+{"question": "Kart numarasını saklamadan ödeme almak mümkün mü?", "expected_sources": ["concept_tokenization", "api_tokenization"], "category": "semantic"}
+{"question": "Loglarda kart bilgisi neden maskeleniyor?", "expected_sources": ["concept_pci_scope"], "category": "semantic"}
+{"question": "Açık provizyon ile kapalı provizyon arasındaki fark nedir?", "expected_sources": ["faq_provizyon"], "category": "semantic"}
+{"question": "Kart sahibinin bankası işlemi zorla geri alırsa ne olur?", "expected_sources": ["faq_ters_ibraz"], "category": "semantic"}
+{"question": "Yeni bir üye işyeri sisteme nasıl eklenir?", "expected_sources": ["faq_uye_isyeri_onboarding", "guide_merchant_onboarding"], "category": "semantic"}
+{"question": "Hesap özetinde beklediğim işlem görünmüyorsa ne yapmalıyım?", "expected_sources": ["faq_takas", "runbook_settlement_delay"], "category": "semantic"}
+{"question": "3DS doğrulaması hangi durumlarda zorunludur?", "expected_sources": ["faq_3ds"], "category": "semantic"}
+{"question": "Her yazma isteğinde STAN göndermek gerekir mi?", "expected_sources": ["faq_api_integration"], "category": "semantic"}
+{"question": "İade işlemi ne kadar sürede tamamlanır?", "expected_sources": ["faq_refunds", "api_refund"], "category": "semantic"}
+{"question": "Sandbox ortamında bir hatayı nasıl simüle ederim?", "expected_sources": ["faq_testing_sandbox"], "category": "semantic"}
+{"question": "Yeni bir POS terminali nasıl kurulur?", "expected_sources": ["guide_pos_terminal_setup"], "category": "semantic"}
+{"question": "Ödeme olaylarını almak için webhook nasıl tanımlanır?", "expected_sources": ["guide_webhook_setup"], "category": "semantic"}
+{"question": "API anahtarı ne sıklıkla değiştirilmelidir?", "expected_sources": ["guide_api_key_rotation"], "category": "semantic"}
+{"question": "3DS doğrulaması nasıl kurulur (enrollment)?", "expected_sources": ["guide_3ds_enrollment"], "category": "semantic"}
+{"question": "FAST transferinde gecikme yaşanan bir olayın kök nedeni neydi?", "expected_sources": ["postmortem_fast_delay"], "category": "semantic"}
+{"question": "Webhook teslimatında birikme (backlog) neden oluştu?", "expected_sources": ["postmortem_webhook_backlog", "guide_webhook_setup"], "category": "semantic"}
+{"question": "Takas mutabakatsızlığına neden olan olayda ne öğrenildi?", "expected_sources": ["postmortem_settlement_mismatch"], "category": "semantic"}
+{"question": "Kart sahibinin bankası işlemi hiçbir gerekçe belirtmeden reddetti, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_rc05"], "category": "confusable"}
+{"question": "Müşterinin kartı, kendi bankası tarafından bu tür işlemler için kısıtlanmış, ilgili prosedür hangisi?", "expected_sources": ["runbook_rc62"], "category": "confusable"}
+{"question": "Yetkilendirme isteği kart çıkaran bankaya hiç ulaşamadı ve zaman aşımına uğradı, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_rc91"], "category": "confusable"}
+{"question": "Alıcı tarafta işlemle doğrudan ilgisi olmayan genel bir sistem arızası oluştu, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_rc96"], "category": "confusable"}
+{"question": "Terminaldeki çip doğrulaması kart tarafında başarısız oldu, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_arqc_failure"], "category": "confusable"}
+{"question": "İşlemin host tarafı kriptogram doğrulaması banka tarafında uyuşmadı, hangi prosedüre bakmalıyım?", "expected_sources": ["runbook_cryptogram_mismatch"], "category": "confusable"}

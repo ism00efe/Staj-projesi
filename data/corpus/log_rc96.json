@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-25T17:56:44Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-I1296",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100728",
+  "rrn": "260725I01864",
+  "responseCode": "96",
+  "responseReason": "System Malfunction",
+  "merchant": { "id": "MID-2008", "name": "Anadolu Tekstil" },
+  "amount": 4220,
+  "currency": "TRY",
+  "clientIp": "192.168.44.9",
+  "message": "System Malfunction - see runbook_rc96.md"
+}

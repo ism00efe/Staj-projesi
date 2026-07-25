@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-07-25T16:49:31Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-H1259",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100637",
+  "rrn": "260725H01631",
+  "responseCode": "91",
+  "responseReason": "Issuer or Switch Inoperative",
+  "merchant": { "id": "MID-2007", "name": "Ege Market" },
+  "amount": 3880,
+  "currency": "TRY",
+  "clientIp": "192.168.44.9",
+  "customer": {
+    "email": "ahmet.yilmaz@example.com",
+    "phone": "0555 222 33 44",
+    "tckn": "56789101248"
+  },
+  "card": { "pan": "5555 5555 5555 4444" },
+  "message": "Issuer or Switch Inoperative - see runbook_rc91.md"
+}

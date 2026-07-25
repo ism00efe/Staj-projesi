@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-25T10:07:13Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-B1037",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100091",
+  "rrn": "260725B00233",
+  "responseCode": "12",
+  "responseReason": "Invalid Transaction",
+  "merchant": { "id": "MID-2001", "name": "Ege Market" },
+  "amount": 1840,
+  "currency": "TRY",
+  "clientIp": "192.168.44.9",
+  "message": "Invalid Transaction - see runbook_rc12.md"
+}

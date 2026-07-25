@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso8583Message>
+  <mti>0110</mti>
+  <de3 name="processingCode">000000</de3>
+  <de4 name="amount">4520</de4>
+  <de11 name="stan">200568</de11>
+  <de37 name="rrn">260725G13514</de37>
+  <de39 name="responseCode">96</de39>
+  <de41 name="terminalId">TRM3008</de41>
+  <de42 name="merchantId">MID-4008</de42>
+  <message>System Malfunction / Sistem Hatası</message>
+</iso8583Message>

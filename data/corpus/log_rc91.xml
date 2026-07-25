@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso8583Message>
+  <mti>0110</mti>
+  <de3 name="processingCode">000000</de3>
+  <de4 name="amount">4105</de4>
+  <de11 name="stan">200497</de11>
+  <de37 name="rrn">260725F13281</de37>
+  <de39 name="responseCode">91</de39>
+  <de41 name="terminalId">TRM3007</de41>
+  <de42 name="merchantId">MID-4007</de42>
+  <message>Issuer or Switch Inoperative / Kart Çıkaran Kuruma Ulaşılamıyor</message>
+</iso8583Message>

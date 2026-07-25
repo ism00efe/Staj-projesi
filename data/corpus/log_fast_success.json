@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-07-25T08:03:11Z",
+  "level": "INFO",
+  "service": "havale-fast-bridge",
+  "event": "fast.transfer.completed",
+  "transactionId": "TRX-20260725-51002",
+  "senderBank": "Vera Bank",
+  "amount": 5000,
+  "currency": "TRY",
+  "durationMs": 840,
+  "customer": { "tckn": "10000000146" },
+  "message": "FAST transfer completed within expected latency"
+}

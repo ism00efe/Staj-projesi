@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-07-25T13:20:07Z",
+  "level": "ERROR",
+  "service": "openbanking-gateway",
+  "event": "payment_order.failed",
+  "transactionId": "TRX-20260725-63118",
+  "errorCode": "consent_expired",
+  "amount": 3200,
+  "currency": "TRY",
+  "customer": { "email": "ahmet.yilmaz@example.com", "tckn": "10000000146" },
+  "message": "Customer consent expired before payment order execution - see "
+             "errorcodes_openbanking.md"
+}

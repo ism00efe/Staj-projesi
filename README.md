@@ -4,9 +4,12 @@ A **RAG-based troubleshooting assistant for payment systems**. Ask a question or
 JSON/XML payment log; the assistant sanitizes the input, retrieves relevant material from
 a local knowledge base, and generates **cited troubleshooting guidance** in Turkish.
 
-> Internship MVP. The knowledge base ships with a **synthetic** English corpus, but the
-> architecture lets you swap in real enterprise documents without changing the core
-> system — you only point `CORPUS_DIR` somewhere else and re-ingest.
+> Internship MVP. The knowledge base ships with a **synthetic, bilingual** (Turkish +
+> English) corpus modeled on real payment standards — ISO 8583, ISO 20022/SWIFT, EMV,
+> card-scheme decline codes, and the Turkish payment ecosystem (BKM, Troy, FAST) — for a
+> fictional bank ("Vera Bank"). The architecture lets you swap in real enterprise
+> documents without changing the core system — you only point `CORPUS_DIR` somewhere
+> else and re-ingest.
 
 ---
 
@@ -17,8 +20,9 @@ a local knowledge base, and generates **cited troubleshooting guidance** in Turk
   embeddings, the vector store, or a prompt.
 - **Provider-agnostic LLM.** Ollama (default), Anthropic, or OpenAI — chosen by an
   environment variable, behind one interface.
-- **Cross-lingual retrieval.** English knowledge base, Turkish questions and answers,
-  powered by a multilingual embedding model.
+- **Cross-lingual retrieval.** Bilingual (Turkish + English) knowledge base — English for
+  international standards and APIs, Turkish for internal runbooks and regulations — with
+  Turkish questions and answers throughout, powered by a multilingual embedding model.
 - **Cited answers.** Responses reference the exact source documents used.
 - **Evaluable.** A small labeled set + metrics (recall@k, MRR, citation precision).
 
@@ -51,7 +55,7 @@ query ─┬─► dense  (multilingual-e5 + Chroma) ─┐
 ```
 
 - **Dense** captures meaning, so Turkish questions match English documents.
-- **Sparse (BM25)** captures exact tokens — error codes (`PAY-6006`), endpoint paths, and
+- **Sparse (BM25)** captures exact tokens — error codes (`RC-51`), endpoint paths, and
   English technical terms embedded in Turkish questions.
 - **RRF** fuses by *rank*, not score, so no normalization between cosine and BM25 is needed.
 - **Cross-encoder re-ranking** scores (query, document) jointly to separate near-identical
@@ -256,29 +260,31 @@ python eval/evaluate.py --strategy hybrid --verbose
 python eval/evaluate.py --with-llm            # + citation precision & groundedness
 ```
 
-The labeled set is [`eval/dataset.jsonl`](eval/dataset.jsonl) — 50 Turkish questions mapped
-to the English documents that should answer them (exercising cross-lingual retrieval).
+The labeled set is [`eval/dataset.jsonl`](eval/dataset.jsonl) — 56 Turkish questions mapped
+to the documents that should answer them (exercising cross-lingual retrieval).
 Each question carries a `category` so the report shows *where* a strategy wins:
 
-- **`lexical`** — names an exact code/endpoint (`PAY-6006`, `POST /v1/voids`) → BM25's edge.
+- **`lexical`** — names an exact code/endpoint (`RC-51`, `POST /v1/reversals`) → BM25's edge.
 - **`semantic`** — Turkish paraphrase with little lexical overlap → the dense model's edge.
 - **`confusable`** — describes an error *without* naming its code, so the answer is one of
-  9 near-identical runbooks → where cross-encoder re-ranking earns its keep.
+  several near-identical ISO 8583 decline-code runbooks → where cross-encoder re-ranking
+  earns its keep.
 
 `--strategy all` prints a comparison table of recall@1/3/5 and MRR per strategy, plus an
 MRR-by-category breakdown.
 
-### Measured results (50 questions, 102 indexed chunks)
+### Measured results (56 questions, 172 indexed chunks)
 
 | Strategy | recall@1 | recall@3 | recall@5 | MRR |
 |---|---|---|---|---|
-| dense (baseline) | 0.340 | 0.520 | 0.560 | 0.432 |
-| hybrid (dense + BM25) | 0.440 | 0.540 | 0.600 | 0.500 |
-| **hybrid + re-rank** | **0.620** | **0.800** | **0.840** | **0.707** |
+| dense (baseline) | 0.607 | 0.696 | 0.714 | 0.656 |
+| hybrid (dense + BM25) | 0.625 | 0.786 | 0.786 | 0.696 |
+| **hybrid + re-rank** | **0.839** | **0.893** | **0.893** | **0.866** |
 
-Each stage earns its place in a different way — BM25 lifts *lexical* MRR 0.631 → 0.863,
-and the cross-encoder lifts *semantic* 0.346 → 0.750 and *confusable* 0.075 → 0.264, for
-an overall MRR gain of **+64%** over the dense baseline. Re-ranking ships **enabled by
+Every metric improves monotonically dense → hybrid → hybrid+rerank on this corpus. BM25
+lifts *lexical* MRR 0.847 → 1.000, and the cross-encoder lifts *confusable* (near-identical
+decline-code runbooks) 0.417 → 0.833 and *semantic* 0.594 → 0.797, for an overall MRR gain
+of **+32%** over the dense baseline. Re-ranking ships **enabled by
 default**: with CUDA torch it costs ~0.13s/query (measured on an RTX 4060, even with a
 7B Ollama model resident); with CPU-only torch it costs ~6s/query instead — set
 `RERANK_ENABLED=false` if that's too slow for your hardware. Full per-category numbers

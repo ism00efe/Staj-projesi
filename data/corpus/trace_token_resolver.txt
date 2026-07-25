@@ -1,0 +1,6 @@
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
+java.lang.IllegalStateException: card token was null for saved-card charge
+    at com.verabank.odeme.motoru.TokenResolver.resolve(TokenResolver.java:76)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=token_resolver, attempt=2, customerEmail=ahmet.yilmaz@example.com, customerPhone=0555 222 33 44

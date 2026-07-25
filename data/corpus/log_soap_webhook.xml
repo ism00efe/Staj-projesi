@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <WebhookNotification>
+      <EventType>payment.captured</EventType>
+      <TransactionId>TRX-20260725-70044</TransactionId>
+      <Merchant>Anadolu Tekstil</Merchant>
+      <Signature>sha256=deadbeefcafef00d1234567890abcdef</Signature>
+      <CustomerEmail>musteri.hizmetleri@example.com</CustomerEmail>
+    </WebhookNotification>
+  </soap:Body>
+</soap:Envelope>

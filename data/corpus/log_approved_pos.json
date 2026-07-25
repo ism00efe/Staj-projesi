@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-07-25T10:12:04Z",
+  "level": "INFO",
+  "service": "karti-odeme-motoru",
+  "event": "payment.approved",
+  "transactionId": "TRX-20260725-88213",
+  "mti": "0110",
+  "responseCode": "00",
+  "responseReason": "Approved",
+  "stan": "441207",
+  "rrn": "260725W23300",
+  "merchant": { "id": "MID-2001", "name": "Marmara Elektronik" },
+  "amount": 24990,
+  "currency": "TRY",
+  "message": "Approved - see api_authorization.md"
+}

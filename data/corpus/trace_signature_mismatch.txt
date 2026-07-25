@@ -1,6 +1,6 @@
-ERROR 2026-07-24T14:05:00Z [payments-worker] Unhandled exception
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
 java.security.SignatureException: HMAC mismatch on webhook payload
-    at com.example.payments.SignatureVerifier.verify(SignatureVerifier.java:47)
-    at com.example.payments.Dispatcher.dispatch(Dispatcher.java:75)
+    at com.verabank.merchantportal.webhook.SignatureVerifier.verify(SignatureVerifier.java:41)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
     at java.base/java.lang.Thread.run(Thread.java:1583)
 Context: component=signature_mismatch, attempt=2

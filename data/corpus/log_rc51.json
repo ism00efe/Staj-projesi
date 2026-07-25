@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-07-25T13:28:52Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-E1148",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100364",
+  "rrn": "260725E00932",
+  "responseCode": "51",
+  "responseReason": "Insufficient Funds",
+  "merchant": { "id": "MID-2004", "name": "Ege Market" },
+  "amount": 2860,
+  "currency": "TRY",
+  "clientIp": "192.168.44.9",
+  "customer": {
+    "email": "musteri.hizmetleri@example.com",
+    "phone": "+90 532 111 22 33",
+    "tckn": "10000000146"
+  },
+  "card": { "pan": "4111 1111 1111 1111" },
+  "message": "Insufficient Funds - see runbook_rc51.md"
+}

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <LegacyPosTransaction>
+      <TerminalId>TRM3099</TerminalId>
+      <ResponseCode>96</ResponseCode>
+      <Message>System Malfunction - legacy SOAP bridge to Zirve POS</Message>
+    </LegacyPosTransaction>
+  </soap:Body>
+</soap:Envelope>

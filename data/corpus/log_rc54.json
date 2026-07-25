@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-07-25T14:35:05Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-F1185",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100455",
+  "rrn": "260725F01165",
+  "responseCode": "54",
+  "responseReason": "Expired Card",
+  "merchant": { "id": "MID-2005", "name": "Anadolu Tekstil" },
+  "amount": 3200,
+  "currency": "TRY",
+  "clientIp": "192.168.44.9",
+  "customer": {
+    "email": "ahmet.yilmaz@example.com",
+    "phone": "0555 222 33 44",
+    "tckn": "56789101248"
+  },
+  "card": { "pan": "5555 5555 5555 4444" },
+  "message": "Expired Card - see runbook_rc54.md"
+}

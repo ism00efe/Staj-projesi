@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-07-25T15:42:18Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-G1222",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100546",
+  "rrn": "260725G01398",
+  "responseCode": "62",
+  "responseReason": "Restricted Card",
+  "merchant": { "id": "MID-2006", "name": "Marmara Elektronik" },
+  "amount": 3540,
+  "currency": "TRY",
+  "clientIp": "10.24.6.18",
+  "customer": {
+    "email": "musteri.hizmetleri@example.com",
+    "phone": "+90 532 111 22 33",
+    "tckn": "10000000146"
+  },
+  "card": { "pan": "4111 1111 1111 1111" },
+  "message": "Restricted Card - see runbook_rc62.md"
+}

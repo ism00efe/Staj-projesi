@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso8583Message>
+  <mti>0110</mti>
+  <de3 name="processingCode">000000</de3>
+  <de4 name="amount">1200</de4>
+  <de11 name="stan">200000</de11>
+  <de37 name="rrn">260725Y11650</de37>
+  <de39 name="responseCode">05</de39>
+  <de41 name="terminalId">TRM3000</de41>
+  <de42 name="merchantId">MID-4000</de42>
+  <message>Do Not Honor / İşlem Reddedildi (Genel Red)</message>
+</iso8583Message>

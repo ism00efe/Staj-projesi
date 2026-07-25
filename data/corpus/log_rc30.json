@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-07-25T12:21:39Z",
+  "level": "ERROR",
+  "service": "karti-odeme-motoru",
+  "event": "payment.declined",
+  "transactionId": "TRX-20260725-D1111",
+  "mti": "0110",
+  "processingCode": "000000",
+  "stan": "100273",
+  "rrn": "260725D00699",
+  "responseCode": "30",
+  "responseReason": "Format Error",
+  "merchant": { "id": "MID-2003", "name": "Marmara Elektronik" },
+  "amount": 2520,
+  "currency": "TRY",
+  "clientIp": "10.24.6.18",
+  "message": "Format Error - see runbook_rc30.md"
+}

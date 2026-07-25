@@ -1,0 +1,6 @@
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
+com.fasterxml.jackson.core.JsonParseException: Unexpected character ('<' (code 60))
+    at com.verabank.merchantportal.webhook.WebhookParser.parse(WebhookParser.java:54)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=webhook_json_parse, attempt=2

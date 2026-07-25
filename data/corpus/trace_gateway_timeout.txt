@@ -1,0 +1,6 @@
+ERROR 2026-07-25T14:05:00Z [kartlı-worker] Unhandled exception
+java.net.SocketTimeoutException: Read timed out
+    at com.verabank.odeme.motoru.service.IssuerGatewayClient.send(IssuerGatewayClient.java:88)
+    at com.verabank.odeme.motoru.Dispatcher.dispatch(Dispatcher.java:71)
+    at java.base/java.lang.Thread.run(Thread.java:1583)
+Context: component=gateway_timeout, attempt=2

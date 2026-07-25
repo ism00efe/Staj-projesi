@@ -375,9 +375,112 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   reliable `[S#]` citation emission depends on the model's instruction-following — the
   0.5b model is inconsistent at it; 7B (or an API provider) is reliable.
 
+## D20 — Corpus v2: full rebuild into a realistic bilingual payment-systems KB
+- **What:** `datagen.py`'s v1 corpus (72 generic-template documents — `PAY-1001`,
+  `com.example.payments.*`) was **fully replaced**, not extended: `generate_corpus()`
+  now clears every existing file in `CORPUS_DIR` before writing, so the old naming
+  scheme can't leave orphaned documents behind when the scheme changes. The new corpus
+  is 93 documents across the 10 families the brief specified (API reference, error-code
+  catalogs, runbooks, FAQ, JSON/XML logs, stack traces, incident postmortems,
+  conceptual overviews, configuration guides), modeled on real international payment
+  standards (ISO 8583 MTIs and response codes, ISO 20022/SWIFT message types, EMV chip
+  errors, Visa/Mastercard decline-code mapping) and the Turkish payment ecosystem (BKM,
+  Troy, FAST), bilingual by design (English for international standards/APIs, Turkish
+  for internal runbooks/regulations — matching how a Turkish bank actually operates).
+  `eval/dataset.jsonl` was rebuilt in step: 56 questions (18 lexical / 32 semantic / 6
+  confusable) against the new document IDs, same schema as before.
+- **Why a full rebuild:** the brief was explicit that appending realistic content next
+  to generic template content ("PAY-1001") would look inconsistent in a demo to a
+  bank's payment team — the corpus needed to read as one coherent knowledge base, not
+  two eras stitched together.
+- **Fictional entities, confirmed with the user before writing content:** the bank
+  ("Vera Bank"), its internal systems (Zirve POS, Kartlı Ödeme Motoru, Havale/Fast
+  Bridge, etc.), and merchants (Marmara Elektronik, Ege Market, Anadolu Tekstil) are all
+  invented — a real bank's name in fabricated failure logs and stack traces is cheap to
+  avoid up front and expensive to unwind once embedded across ~30 files. Real, public
+  infrastructure and standards (BKM, Troy, FAST, Visa, Mastercard, ISO 8583, ISO 20022,
+  SWIFT, EMV, PCI DSS) are still referenced by name throughout — those are standards,
+  not a specific company's fabricated internal bugs.
+- **Content authorship & review disclosure (one place, not per-file):** this corpus was
+  authored directly by the assistant (Claude), reviewed for factual plausibility against
+  publicly documented standards while writing — ISO 8583 response-code semantics (RC-05
+  "Do Not Honor" through RC-96 "System Malfunction"), MTI meanings, EMV terminology
+  (ARQC, cryptogram, TVR), and the real, stable descriptions of BKM/Troy/FAST. A
+  per-file marker was deliberately **not** added (see the plan-time decision with the
+  user): that text would be embedded and indexed in every single chunk, adding
+  boilerplate noise to the exact retrieval space this system is built to keep clean.
+- **PII is synthetic, reused deliberately:** the same Luhn-valid test PAN
+  (`4111 1111 1111 1111`) and an obviously-patterned checksum-valid TCKN
+  (`10000000146`, repeating zeros — not a plausible real assignment) already used and
+  tested in v1 carry forward, plus a second widely-published test PAN (Mastercard's
+  `5555 5555 5555 4444`) and a second patterned TCKN for variety. Sprinkled into ~15 of
+  the 93 files (log/trace samples), not every file — realistic production logs are
+  mostly clean, which is itself part of the demo (see the "Verification" numbers below
+  for exactly which categories got masked where).
+- **Two real false positives found and fixed during authoring (not sanitization bugs —
+  data-shape collisions with existing, correct sanitization patterns):**
+  1. **RRN false-masked as `[PHONE]`.** ISO 8583's RRN (DE37) is a bare 12-digit field
+     in a naive implementation; the sanitization phone pattern's optional
+     country-code/area-code groups can fully consume any 9-14 digit run, so a
+     pure-digit 12-character RRN is structurally indistinguishable from a phone number
+     to that regex. Fixed at the source, not in `sanitization.py` (out of this phase's
+     scope, and not obviously the right fix anyway — the pattern is correctly
+     conservative): generated RRNs now include one letter (e.g. `260725F13281`),
+     which is *more* realistic, not less — real-world RRN formats are
+     processor-defined and commonly alphanumeric — and structurally breaks the
+     phone regex's digit-only match.
+  2. **Transaction ID false-masked as `[CARD]` (4 of 9 RC-code logs, by chance).** The
+     card pattern tolerates dashes between digits; `TRX-20260725-NNNNN` forms a
+     13-digit span across the dash (8-digit date + 5-digit sequence) that is
+     occasionally Luhn-valid by pure chance, and Luhn-valid 13-19 digit runs are
+     exactly what that pattern is supposed to catch. Fixed the same way: inserted a
+     letter into the sequence portion (`TRX-20260725-A0111`), which breaks the
+     digit-run structurally rather than relying on the Luhn coincidence not
+     recurring.
+  Both were caught by scanning every generated document's sanitized output against an
+  "expected vs. unexpected mask" allowlist before considering the corpus done — the
+  same discipline the PII leak-scan test suite already applies to the pipeline, applied
+  here to the content itself.
+- **Filename-prefix constraint honored:** every new document classifies under the 8
+  prefixes `ingestion.py` already knows (`api_ errorcodes_ runbook_ faq_ log_ trace_
+  concept_ guide_`) — `ingestion.py` itself was not touched, per the phase's explicit
+  constraint. Configuration guides fit `guide_` naturally. Incident postmortems use a
+  new `postmortem_` prefix, which falls through to the generic `"document"` doc_type —
+  harmless, since doc_type is display/citation metadata only and never used for
+  retrieval filtering.
+
 ---
 
-## Retrieval results (2026-07-24, 50 questions / 102 chunks)
+## Retrieval results (2026-07-25, corpus v2 — 56 questions / 172 chunks)
+
+`python eval/evaluate.py --strategy all`, run against the rebuilt corpus (93 documents).
+Superseded the 2026-07-24 numbers below, which were measured against the now-replaced
+72-document v1 corpus and are kept only as a historical record.
+
+| Strategy | recall@1 | recall@3 | recall@5 | MRR |
+|---|---|---|---|---|
+| dense (baseline) | 0.607 | 0.696 | 0.714 | 0.656 |
+| hybrid (dense + BM25) | 0.625 | 0.786 | 0.786 | 0.696 |
+| **hybrid + re-rank** | **0.839** | **0.893** | **0.893** | **0.866** |
+
+MRR by category — the confusable set (ISO 8583 RC-code runbooks + ARQC-vs-cryptogram
+pairs, described by symptom without naming the code) is exactly where re-ranking is
+supposed to earn its keep, and does:
+
+| Strategy | lexical | semantic | confusable |
+|---|---|---|---|
+| dense | 0.847 | 0.594 | 0.417 |
+| hybrid | 0.880 | 0.615 | 0.583 |
+| hybrid + re-rank | 1.000 | 0.797 | **0.833** |
+
+Every metric improves monotonically dense → hybrid → hybrid+rerank on this corpus —
+cleaner differentiation than v1 saw (where hybrid cost a small amount of semantic MRR as
+a documented tradeoff); the richer, more genuinely confusable RC-code family gives both
+BM25 and the cross-encoder more real signal to work with.
+
+---
+
+## Retrieval results (2026-07-24, 50 questions / 102 chunks) — historical, v1 corpus
 
 `python eval/evaluate.py --strategy all`
 

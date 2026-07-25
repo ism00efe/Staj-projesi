@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso8583Message>
+  <mti>0110</mti>
+  <de3 name="processingCode">000000</de3>
+  <de4 name="amount">3690</de4>
+  <de11 name="stan">200426</de11>
+  <de37 name="rrn">260725E13048</de37>
+  <de39 name="responseCode">62</de39>
+  <de41 name="terminalId">TRM3006</de41>
+  <de42 name="merchantId">MID-4006</de42>
+  <message>Restricted Card / Kısıtlı Kart</message>
+</iso8583Message>

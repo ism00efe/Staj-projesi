@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<iso8583Message>
+  <mti>0110</mti>
+  <de3 name="processingCode">000000</de3>
+  <de4 name="amount">2860</de4>
+  <de11 name="stan">200284</de11>
+  <de37 name="rrn">260725C12582</de37>
+  <de39 name="responseCode">51</de39>
+  <de41 name="terminalId">TRM3004</de41>
+  <de42 name="merchantId">MID-4004</de42>
+  <message>Insufficient Funds / Yetersiz Bakiye</message>
+  <customerEmail>musteri.hizmetleri@example.com</customerEmail>
+  <customerPhone>+90 532 111 22 33</customerPhone>
+</iso8583Message>

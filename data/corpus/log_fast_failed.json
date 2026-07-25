@@ -1,0 +1,13 @@
+{
+  "timestamp": "2026-07-25T08:14:52Z",
+  "level": "ERROR",
+  "service": "havale-fast-bridge",
+  "event": "fast.transfer.failed",
+  "transactionId": "TRX-20260725-51009",
+  "senderBank": "Vera Bank",
+  "errorCode": "receiver_bank_timeout",
+  "amount": 12000,
+  "currency": "TRY",
+  "customer": { "tckn": "56789101248", "phone": "+90 532 111 22 33" },
+  "message": "Receiver bank did not acknowledge in time - see runbook_fast_failure.md"
+}
