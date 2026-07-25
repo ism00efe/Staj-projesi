@@ -48,6 +48,15 @@ disallow_untyped_defs = false
 warn_unused_ignores = true
 exclude = ["tests/", "scripts/", "eval/"]
 
+# Gradio's component classes gain methods (.click, .change, ...) via runtime mixins
+# whose visibility to static analysis is inconsistent across gradio releases (verified
+# locally on 6.20.0 vs. what CI resolved). Skip following into it rather than chase a
+# moving target.
+[[tool.mypy.overrides]]
+module = ["gradio", "gradio.*"]
+follow_imports = "skip"
+ignore_missing_imports = true
+
 [tool.coverage.run]
 source = ["payment_assistant"]
 branch = true
