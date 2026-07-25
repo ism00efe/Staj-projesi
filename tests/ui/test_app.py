@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from payment_assistant.models import Answer, Citation, RetrievedChunk
 from payment_assistant.ui.app import _format_answer, build_ui, handle_query
 from tests.conftest import make_chunk

@@ -60,7 +60,9 @@ def load_dataset() -> list[dict]:
     return items
 
 
-def evaluate_retrieval(retriever, dataset: list[dict], max_k: int, *, verbose: bool = False) -> dict:
+def evaluate_retrieval(
+    retriever, dataset: list[dict], max_k: int, *, verbose: bool = False
+) -> dict:
     """Run one strategy over the dataset and return its metrics."""
 
     recall_hits = {k: 0 for k in _K_VALUES}
@@ -104,7 +106,11 @@ def print_comparison(results: dict[str, dict]) -> None:
     print("\n" + "=" * 66)
     print("RETRIEVAL STRATEGY COMPARISON")
     print("=" * 66)
-    header = f"{'Strategy':<16}" + "".join(f"{'recall@'+str(k):>11}" for k in _K_VALUES) + f"{'MRR':>11}"
+    header = (
+        f"{'Strategy':<16}"
+        + "".join(f"{'recall@' + str(k):>11}" for k in _K_VALUES)
+        + f"{'MRR':>11}"
+    )
     print(header)
     print("-" * 66)
     for name, m in results.items():

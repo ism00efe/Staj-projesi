@@ -116,7 +116,11 @@ class HybridRetriever:
             rankings.append(self._sparse.retrieve(query, depth))
 
         # With a single ranking there is nothing to fuse; keep the original scores.
-        fused = reciprocal_rank_fusion(rankings, k=self._rrf_k) if len(rankings) > 1 else rankings[0]
+        fused = (
+            reciprocal_rank_fusion(rankings, k=self._rrf_k)
+            if len(rankings) > 1
+            else rankings[0]
+        )
         # Truncate to `depth`, not `candidates`: a caller asking for more than the
         # configured candidate pool must still receive top_k results.
         candidates = fused[:depth]

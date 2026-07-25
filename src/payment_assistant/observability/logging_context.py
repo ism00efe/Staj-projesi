@@ -20,10 +20,10 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
-from typing import Iterator
+from datetime import UTC, datetime
 
 _trace_id_var: ContextVar[str] = ContextVar("trace_id", default="-")
 
@@ -99,7 +99,7 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
             "timestamp": datetime.fromtimestamp(
-                record.created, tz=timezone.utc
+                record.created, tz=UTC
             ).isoformat(timespec="milliseconds"),
             "level": record.levelname,
             "logger": record.name,

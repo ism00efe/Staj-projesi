@@ -64,7 +64,7 @@ class CrossEncoderReranker:
 
         rescored = [
             RetrievedChunk(chunk=item.chunk, score=float(score))
-            for item, score in zip(candidates, scores)
+            for item, score in zip(candidates, scores, strict=True)
         ]
         # Ties break on chunk id to keep the ordering deterministic.
         rescored.sort(key=lambda r: (-r.score, r.chunk.id))

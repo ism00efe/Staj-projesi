@@ -76,7 +76,7 @@ _PII = {
 # Card decline is always the surface symptom; only the reason/cause differs —
 # exactly the case a bi-encoder blurs and hybrid+rerank must resolve.
 # ---------------------------------------------------------------------------
-_RC_CODES: list[dict[str, str]] = [
+_RC_CODES: list[dict[str, str | None]] = [
     {
         "code": "05", "reason_tr": "İşlem Reddedildi (Genel Red)", "reason_en": "Do Not Honor",
         "category_tr": "kart çıkaran red", "retry": "Hayır",
@@ -203,7 +203,7 @@ def _rrn(index: int) -> str:
     return f"260725{letter}{(100000 + index * 233) % 100000:05d}"
 
 
-def _runbook_for_rc(rc: dict[str, str]) -> tuple[str, str]:
+def _runbook_for_rc(rc: dict[str, str | None]) -> tuple[str, str]:
     name = f"runbook_rc{rc['code']}.md"
     scheme_line = f"Visa: {rc['visa'] or '—'} · Mastercard: {rc['mc'] or '—'}"
     body = f"""# Prosedür: RC-{rc['code']} ({rc['reason_tr']} / {rc['reason_en']})
@@ -235,7 +235,7 @@ için bkz. `errorcodes_iso8583.md`.
     return name, body
 
 
-def _json_log_for_rc(rc: dict[str, str], index: int, *, with_pii: bool) -> tuple[str, str]:
+def _json_log_for_rc(rc: dict[str, str | None], index: int, *, with_pii: bool) -> tuple[str, str]:
     # transactionId includes a letter (not a pure digit run) deliberately: the card
     # regex tolerates dashes between digits, so an 8-digit date + a pure 5-digit
     # sequence forms a 13-digit span that's occasionally Luhn-valid by chance and gets
@@ -274,7 +274,7 @@ def _json_log_for_rc(rc: dict[str, str], index: int, *, with_pii: bool) -> tuple
     return name, body
 
 
-def _xml_log_for_rc(rc: dict[str, str], index: int, *, with_pii: bool) -> tuple[str, str]:
+def _xml_log_for_rc(rc: dict[str, str | None], index: int, *, with_pii: bool) -> tuple[str, str]:
     name = f"log_rc{rc['code']}.xml"
     pii_block = ""
     if with_pii:
@@ -570,7 +570,7 @@ _POSTMORTEMS: list[tuple[str, str, str]] = [
      "**Alınan Aksiyonlar:** Bağlantı havuzu boyutu artırıldı; dağıtım öncesi yük "
      "testi süreci zorunlu hale getirildi. Bkz. `runbook_rc96.md`."),
     ("settlement_mismatch", "Takas Mutabakatsızlığı",
-     f"**Özet:** 2026-07-10 takas döngüsünde Takas Motoru'nun ürettiği toplam tutar, "
+     "**Özet:** 2026-07-10 takas döngüsünde Takas Motoru'nun ürettiği toplam tutar, "
      "banka takas dosyasıyla ~%2 oranında uyuşmadı.\n\n"
      "**Kök Neden:** Aynı batch iki kez işlenmiş (mükerrer gönderim), önceki bir "
      "yeniden deneme (retry) mekanizmasının idempotency kontrolü atlaması "
@@ -1017,7 +1017,7 @@ A single retry is safe if the terminal clock was the cause and has been correcte
 Persistent mismatches for one issuer require escalation, not repeated retries.
 """
 
-    docs["runbook_3ds_failure.md"] = f"""# Prosedür: 3DS Kimlik Doğrulama Hatası
+    docs["runbook_3ds_failure.md"] = """# Prosedür: 3DS Kimlik Doğrulama Hatası
 
 Kategori: kimlik doğrulama · Yeniden deneme: Belki
 
@@ -1064,7 +1064,7 @@ denenebilir. `account_not_found` ve `daily_limit_exceeded` için tekrar deneme
 önerilmez.
 """
 
-    docs["runbook_settlement_delay.md"] = f"""# Prosedür: Takas ve Mutabakat Gecikmeleri
+    docs["runbook_settlement_delay.md"] = """# Prosedür: Takas ve Mutabakat Gecikmeleri
 
 Kategori: teknik · Yeniden deneme: Uygulanamaz (manuel inceleme gerektirir)
 

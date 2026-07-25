@@ -34,10 +34,10 @@ def _format_answer(answer: Answer) -> tuple[str, str, str]:
     elif answer.retrieved:
         lines = ["### Getirilen Kaynaklar (atıf yapılmadı)"]
         for i, item in enumerate(answer.retrieved, start=1):
-            c = item.chunk
+            chunk = item.chunk
             lines.append(
-                f"- **[S{i}]** {c.title} "
-                f"`({c.doc_type}, {c.source_path}, benzerlik={item.score:.2f})`"
+                f"- **[S{i}]** {chunk.title} "
+                f"`({chunk.doc_type}, {chunk.source_path}, benzerlik={item.score:.2f})`"
             )
         sources_md = "\n".join(lines)
     else:

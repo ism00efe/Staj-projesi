@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from payment_assistant.models import RetrievedChunk
 from payment_assistant.rag.prompts import (
     SYSTEM_PROMPT,
     build_user_prompt,
 )
 from tests.conftest import make_chunk
-from payment_assistant.models import RetrievedChunk
 
 
 def test_system_prompt_is_turkish_and_grounded():

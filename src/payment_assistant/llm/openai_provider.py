@@ -58,7 +58,7 @@ class OpenAIProvider:
             resp = requests.post(
                 f"{self._base_url}/chat/completions",
                 headers=headers,
-                json=payload,
+                json=payload,  # type: ignore[arg-type]
                 timeout=self._timeout,
             )
             resp.raise_for_status()

@@ -55,24 +55,26 @@ class ChromaVectorStore:
             return
         self._collection.add(
             ids=[c.id for c in chunks],
-            embeddings=embeddings,
+            embeddings=embeddings,  # type: ignore[arg-type]
             documents=[c.text for c in chunks],
             metadatas=[dict(c.metadata()) for c in chunks],
         )
 
     def query(self, embedding: list[float], top_k: int) -> list[RetrievedChunk]:
         result = self._collection.query(
-            query_embeddings=[embedding],
+            query_embeddings=[embedding],  # type: ignore[arg-type]
             n_results=top_k,
             include=["documents", "metadatas", "distances"],
         )
+        # Chroma's stubs mark these Optional because `include` is dynamic; we always
+        # request all three, so they're guaranteed present here.
         ids = result.get("ids", [[]])[0]
-        docs = result.get("documents", [[]])[0]
-        metas = result.get("metadatas", [[]])[0]
-        dists = result.get("distances", [[]])[0]
+        docs = result.get("documents", [[]])[0]  # type: ignore[index]
+        metas = result.get("metadatas", [[]])[0]  # type: ignore[index]
+        dists = result.get("distances", [[]])[0]  # type: ignore[index]
 
         retrieved: list[RetrievedChunk] = []
-        for cid, text, meta, dist in zip(ids, docs, metas, dists):
+        for cid, text, meta, dist in zip(ids, docs, metas, dists, strict=True):
             chunk = Chunk(
                 id=cid,
                 document_id=str(meta.get("document_id", "")),

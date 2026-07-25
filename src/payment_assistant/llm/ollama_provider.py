@@ -48,7 +48,9 @@ class OllamaProvider:
         }
         try:
             resp = requests.post(
-                f"{self._base_url}/api/chat", json=payload, timeout=self._timeout
+                f"{self._base_url}/api/chat",
+                json=payload,  # type: ignore[arg-type]
+                timeout=self._timeout,
             )
             resp.raise_for_status()
             data = resp.json()

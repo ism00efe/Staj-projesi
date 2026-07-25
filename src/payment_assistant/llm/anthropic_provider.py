@@ -55,7 +55,10 @@ class AnthropicProvider:
         }
         try:
             resp = requests.post(
-                _API_URL, headers=headers, json=payload, timeout=self._timeout
+                _API_URL,
+                headers=headers,
+                json=payload,  # type: ignore[arg-type]
+                timeout=self._timeout,
             )
             resp.raise_for_status()
             data = resp.json()

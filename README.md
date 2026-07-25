@@ -1,5 +1,7 @@
 # 💳 Payment Systems Knowledge & Log Analysis Assistant
 
+[![CI](https://github.com/ism00efe/Staj-projesi/actions/workflows/ci.yml/badge.svg)](https://github.com/ism00efe/Staj-projesi/actions/workflows/ci.yml)
+
 A **RAG-based troubleshooting assistant for payment systems**. Ask a question or upload a
 JSON/XML payment log; the assistant sanitizes the input, retrieves relevant material from
 a local knowledge base, and generates **cited troubleshooting guidance** in Turkish.
@@ -250,6 +252,29 @@ The suite is fast and offline (~230 tests, ~25s) — models, Chroma, the LLM, an
 Prometheus HTTP server are replaced by in-memory fakes/monkeypatches (`tests/conftest.py`),
 except the vector-store tests which run real Chroma in a temp dir. Coverage is ~99% of
 statements across the package (launch glue excluded).
+
+## CI/CD
+
+Every push and pull request runs [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+on GitHub Actions:
+
+1. **`test`** — installs the project (`pip install ".[dev]"`), then runs `ruff check .`
+   (lint), `mypy src/` (type check), and `pytest --cov` (the full suite above). All three
+   must pass.
+2. **`build`** — only runs if `test` passes; builds the Docker image
+   (`docker build -t payment-rag-assistant .`) to prove the container still builds. It
+   does not push the image anywhere — that's future scope, not needed for an internship
+   MVP.
+
+Run the same checks locally before pushing:
+
+```bash
+pip install -e ".[dev]"
+ruff check . && mypy src/ && pytest --cov
+```
+
+Design rationale (why ruff/mypy, why two separate jobs, why the HuggingFace cache) is in
+[`DECISIONS.md`](DECISIONS.md) (D21).
 
 ## Evaluation
 

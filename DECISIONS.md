@@ -449,6 +449,56 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   harmless, since doc_type is display/citation metadata only and never used for
   retrieval filtering.
 
+## D21 — CI/CD: GitHub Actions, ruff + mypy, test/build split, no registry push
+- **What:** `.github/workflows/ci.yml` runs on every push and PR. Job `test` installs
+  the project (`pip install ".[dev]"`), then runs `ruff check .`, `mypy src/`, and
+  `pytest --cov --cov-report=xml`. Job `build` runs only if `test` passes and runs
+  `docker build -t payment-rag-assistant .` to prove the container still builds. Neither
+  job pushes an image anywhere.
+- **Why ruff:** one dependency replaces flake8 + isort + pyupgrade + a chunk of pylint,
+  which matters for an intern-maintained repo — fewer tools to configure and explain.
+  Enabled rule groups are deliberately narrow (`E`, `F`, `I`, `UP`, `B` — pyflakes,
+  pycodestyle errors, import sort, pyupgrade, bugbear) rather than ruff's full rule set:
+  wide-net linting on a repo this size mostly produces style bikeshedding, not caught
+  bugs. `B` (bugbear) is the one that actually paid for itself in this pass — it caught
+  two `zip()` calls without `strict=` in `reranker.py`/`vectorstore.py`, both cases
+  where a silent length mismatch between parallel arrays would corrupt results rather
+  than crash.
+- **Why mypy, and why it's scoped to `src/`:** tests and eval scripts favor fakes,
+  fixtures, and dynamic monkeypatching that fight static typing for little payoff;
+  `src/` is where a wrong type actually reaches an LLM provider or the vector store in
+  production. Real findings from the first run: an `_RC_CODES` dict typed
+  `dict[str, str]` that actually carries `None` for card schemes with no equivalent
+  code (RC-91 has no Mastercard code, RC-96 has no Visa code) — the call site already
+  handled it (`rc['visa'] or '—'`), the annotation was just wrong; and a citation-vs-
+  chunk variable in `ui/app.py` reusing the name `c` across two mutually exclusive
+  branches, which mypy flags as a type conflict even though the branches never both
+  run. Both were real (if low-severity) inaccuracies, fixed at the source rather than
+  suppressed. The remaining findings — `requests.post(json=...)` and `chromadb`
+  `Collection.add`/`query()` — are third-party stub over-precision (a JSON-serializable
+  plain dict rejected because mypy can't prove every value is a `JsonType`; Chroma
+  marking query-result fields `Optional` because `include` is technically dynamic, even
+  though we always request all three) with no real bug underneath; those are narrow,
+  commented `# type: ignore[code]` suppressions rather than defensive runtime asserts
+  for cases that can't happen — consistent with this project's existing rule against
+  validating what can't occur.
+- **Why `test` and `build` are separate jobs, not steps:** `build` declares
+  `needs: test`, so a broken test run stops the pipeline before spending time on a
+  Docker build; a green pipeline in the Actions UI reads as two independent facts
+  (code is correct; the container still builds) instead of one undifferentiated
+  pass/fail.
+- **Why the HuggingFace cache is present but currently inert:** the brief asked for it
+  explicitly, and it costs nothing to keep warm — `actions/cache` on
+  `~/.cache/huggingface` no-ops if nothing writes there. Today's test suite fakes out
+  `SentenceTransformer`/`CrossEncoder` (see the Testing section of `DECISIONS.md`
+  history / README), so no real model download happens in CI yet; the cache pays off
+  the moment a future CI step runs `eval/evaluate.py` or a real smoke test against the
+  actual embedding model.
+- **Why no registry push:** out of scope for an internship MVP with no deployment
+  target yet — `docker build` alone already answers the only question CI needs to
+  answer right now ("does the image still build"). Pushing to a registry is a natural
+  D-numbered follow-up once there's somewhere real to deploy to.
+
 ---
 
 ## Retrieval results (2026-07-25, corpus v2 — 56 questions / 172 chunks)
