@@ -51,8 +51,10 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   so this stays simple.
 
 ## D5 — Bilingual UX: English knowledge base, Turkish interface & answers
-- **What:** Corpus authored in English (realistic payment API/runbook style); Gradio
+- **What:** Corpus authored in English (realistic payment API/runbook style); interface
   labels in Turkish; the assistant answers in Turkish and cites English sources.
+  (The interface was Gradio when this was written; the decision itself is unchanged — see
+  D22.)
 - **Why:** Mirrors a Turkish enterprise using English technical documentation. Exercises
   the cross-lingual retrieval that D2 was chosen for.
 - **Tradeoffs:** Slightly more prompt care (instruct the model to answer in Turkish from
@@ -81,6 +83,9 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   (embeddings, vectorstore, ingestion, logs, prompts, engine), `ui/` (Gradio), with
   `config`/`models`/`sanitization`/`service`/`datagen` as cross-cutting root modules.
   `tests/` mirrors this tree.
+  *(Updated by D22: `ui/` now holds static assets only and an `api/` layer was added. The
+  layer-per-package principle is unchanged — the HTTP layer got its own package for the
+  same reason.)*
 - **Why:** Makes the clean-architecture layers (already described in CLAUDE.md) visible in
   the filesystem; keeps related modules together; `tests/` mirroring source is easy to
   navigate. Depth is kept shallow (no one-file "package per class" sprawl).
@@ -99,6 +104,10 @@ Non-critical implementation assumptions are appended at the bottom as they are m
 - **Tradeoffs:** Launch glue (`ui/app.py:main`, the Gradio button wiring) is marked
   `# pragma: no cover` — it is exercised manually / via the integration eval, not unit
   tests.
+  *(Updated by D22: that glue is now `api/app.py:main`, still the only `pragma: no cover`.
+  The HTTP layer around it is unit-tested via `TestClient`, so the uncovered surface is
+  smaller than it was — the routes, schemas, error handlers, and middleware are all
+  covered.)*
 
 ## D11 — Hybrid retrieval: dense + BM25, fused with Reciprocal Rank Fusion
 - **What:** A `Retriever` protocol with `DenseRetriever` (an *adapter* over the existing
@@ -334,12 +343,16 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   filesystem path. Flagged here as a boundary risk to revisit *if* `AssistantService` is
   ever exposed through a future API layer that accepts a path directly — at which point
   it would need an explicit allow-listed-directory check, not before.
+  *(Resolved by D22. That API layer now exists and accepts only `file_content` text, with
+  unknown fields rejected — so the risk is closed by construction and the allow-list check
+  was never needed. `ask_with_log_file` has no production caller as of D22.)*
 - **Rate limiting: deferred, not implemented.** The task explicitly marked this optional
   ("flag it if too complex"). A correct implementation needs per-client identity and
   either shared state across workers or sticky routing — neither exists yet in this
   single-process MVP, and getting it wrong (e.g. an in-memory counter that resets on
   every restart and doesn't coordinate across replicas) is worse than not having it,
-  because it would look like protection without providing it. The standard, correct
+  because it would look like protection without providing it. *(Superseded by D23, which
+  quotes this reasoning and states what changed.)* The standard, correct
   place for this is a reverse proxy (nginx/Traefik) in front of the app, which is also
   where the ~50-user production target would need one regardless of what the app itself
   does. Recorded here as a roadmap item, not silently dropped.
@@ -498,6 +511,145 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   target yet — `docker build` alone already answers the only question CI needs to
   answer right now ("does the image still build"). Pushing to a registry is a natural
   D-numbered follow-up once there's somewhere real to deploy to.
+
+## D22 — HTTP API + vanilla web UI replace Gradio; a VS extension as a third client
+- **What:** `api/` exposes `POST /api/analyze` (plus `GET /api/health`) as a thin
+  controller over the unchanged `AssistantService`; the same process serves a plain
+  HTML/CSS/JS page from `ui/static/` at `/`. Gradio and `ui/app.py` are gone. A Visual
+  Studio extension (`vsix/`) is a third client over the identical endpoint.
+- **Why not keep Gradio:** it owns the transport, the widget model, and the error
+  surface, so there is no contract any other client can call — and its API moves between
+  releases. This repo already carried a `[[tool.mypy.overrides]]` block written purely to
+  stop chasing that movement; this change deletes it. Once a second and third client were
+  required, "one JSON contract, three thin clients" was the only shape that avoided
+  reimplementing the pipeline per client.
+- **Why FastAPI:** pydantic is already a dependency (via pydantic-settings), so the
+  schema layer costs nothing new; OpenAPI/`/docs` comes free, which matters for a team
+  that has to integrate against this; and it is async-optional, so the blocking pipeline
+  stays on a plain `def` handler that FastAPI dispatches to a threadpool. That last point
+  is not incidental — `service.ask()` blocks for seconds (embed, re-rank, LLM), and an
+  `async def` handler would have serialized every request including the page's own CSS.
+- **Why vanilla JS and no npm:** the entire UI is presentation over one JSON endpoint.
+  A build toolchain would roughly double the repo's tooling surface (node, a lockfile, a
+  bundler, a second CI cache) to save nothing on three static files.
+- **Why `create_app(service, settings)` and not `Depends` + `dependency_overrides`:**
+  every seam in this codebase is constructor-injected with `build_service()` as the one
+  composition root, and a module-level `app = create_app(build_service())` would run that
+  root at *import* time — loading an embedding model just to import the package in a
+  test. Explicit injection keeps the existing pattern and makes the test setup one line.
+- **Trace ids: a real defect, found by running it.** `bind_trace_id()` minted a fresh id
+  whenever called without one, so the API bound an id per request and `RAGEngine.answer()`
+  immediately shadowed it with its own. Every request produced two ids, and a *failed*
+  request's api-level log line could not be joined to the pipeline line that explained the
+  failure. `bind_trace_id()` now inherits an already-bound id; an explicit id still wins,
+  so a caller that means to start a distinct trace still can. Separately, unhandled
+  exceptions are rendered by Starlette's `ServerErrorMiddleware`, which sits *outside*
+  every user middleware — by then the context var has unwound, so every 500 told the user
+  to quote trace id `"-"`. The id is now also written onto the ASGI scope, which survives
+  the unwind. Both were invisible to unit tests and only showed up against a live server.
+- **Why the `RequestValidationError` handler is mandatory:** FastAPI's default 422 body
+  echoes the offending value back in `input`. Here that value is raw, unsanitized user
+  content — a query or a log excerpt. The custom handler emits only dotted field paths,
+  and `exc.errors()` is never handed to a logger.
+- **This closes D19's open path-traversal question.** D19 flagged `ask_with_log_file`'s
+  path parameter as a boundary risk "if `AssistantService` is ever exposed through a
+  future API layer that accepts a path directly", and asked for an allow-listed-directory
+  check at that point. The check turned out to be unnecessary: the API accepts only
+  `file_content` text (the browser reads the file with `FileReader`, the extension with
+  `File.ReadAllText`), and `extra="forbid"` rejects a stray `file_path` field with a 422.
+  The risk is closed by construction rather than by validation. `ask_with_log_file` now
+  has no production caller; it is left in place because `service.py` was out of scope for
+  this phase, and noted as a removal candidate.
+- **Why `blocked` is derived from a display string:** the engine signals a guard refusal
+  only through `Answer.text == REFUSAL_MESSAGE`. That is a string comparison, but against
+  a *public exported constant* already pinned by three tests in `tests/rag/test_engine.py`
+  — not a copied literal. Every cleaner channel (`REQUEST_COUNT.labels(status="blocked")`)
+  is metrics-only and unreachable per request. The clean fix is a `status` field on
+  `Answer`, which needs a `rag/engine.py` change; recorded as the follow-up. The other two
+  early-return cases are deliberately *not* string-matched — they have no constant and no
+  test behind them, so matching them would be genuine brittleness.
+- **Why empty input returns 200, not 422:** the engine already handles "no question and no
+  log" with a Turkish message and a `status="empty"` metric. Short-circuiting in the
+  controller would duplicate that string and silently lose the metric. 422 is reserved for
+  requests that do not parse.
+- **Why `/metrics` stays on its own port:** `build_service()` unconditionally starts the
+  standalone exporter and `service.py` was out of scope, so mounting `/metrics` on the
+  ASGI app would have meant *both* — or neutering `start_metrics_server` into a function
+  whose docstring lies. Keeping it costs nothing, leaves `docker/prometheus.yml` and the
+  compose files valid, and keeps the ops port separate from the user-facing one.
+- **Why the client IP is never logged:** an IP address is one of the six categories
+  `sanitization.py` exists to mask. The rate limiter keys on it in memory and never emits
+  it, `_EXTRA_FIELDS` gained only `status_code`, and uvicorn's access log is disabled
+  because its formatter renders the client address into every line. Two tests enforce this.
+- **Packaging tripwire:** pytest puts `src/` ahead of site-packages, so *no* Python test
+  can catch a missing `[tool.setuptools.package-data]` entry — the static assets would
+  simply vanish from the Docker image. The guard is an assert in the `Dockerfile` after
+  `pip install .`, which runs in CI's existing `build` job.
+
+## D23 — In-process rate limiting, superseding D19's deferral
+- **What:** a per-client sliding-window limiter (`api/middleware.py`) on the `/api` router,
+  plus a 5 MB request-body cap. Configurable via `API_RATE_LIMIT_*`; on by default.
+- **What changed since D19.** D19 declined this in strong terms: an in-memory counter
+  "that resets on every restart and doesn't coordinate across replicas is worse than not
+  having it, because it would look like protection without providing it." That reasoning
+  was correct for what existed then and is now partly overtaken. Gradio's request queue
+  previously provided incidental back-pressure; a plain JSON endpoint reachable by any
+  HTTP client has none. The app is also still *deliberately* single-process — the
+  in-memory Chroma client and the per-worker model load make `workers > 1` actively wrong
+  — so "doesn't coordinate across replicas" describes a deployment that cannot currently
+  exist. What remains valid from D19 is that a reverse proxy is the right answer for a
+  real multi-user deployment; that stays on the roadmap. The limiter is documented as
+  per-process best-effort in code, README, and `.env.example` so it is not mistaken for
+  more than it is.
+- **Why sliding window over fixed window:** a fixed window lets a client spend its whole
+  budget at the end of one window and again at the start of the next — a "30 per minute"
+  limit permits 60 requests in a couple of seconds across the boundary, which is precisely
+  the burst the limit exists to stop.
+- **Why the tracked-client cap:** without evicting stale buckets, a source rotating its
+  address grows the dict without bound — turning the denial-of-service defense into a
+  memory-exhaustion vector. `_MAX_TRACKED_CLIENTS` bounds it.
+- **Why `X-Forwarded-For` is read from the right, and ignored by default:** everything to
+  the left of your trusted hops is client-supplied and forgeable, so trusting the leftmost
+  entry (the common mistake) would let any caller evade the limit with one header.
+  `API_TRUSTED_PROXY_HOPS=0` means the header is ignored entirely, which is correct when
+  nothing sits in front of the app — as in today's compose file.
+- **Why a router dependency, not middleware:** middleware would count `GET /` and
+  `/static/*` too, so one page load would rate-limit its own stylesheet.
+- **Why `async def`:** it therefore runs on the event loop, where the limiter's deques
+  cannot interleave. A plain `def` dependency would be handed to the threadpool and race.
+
+## D24 — Visual Studio extension: classic VSSDK, shipped uncompiled
+- **What:** `vsix/` adds a VS 2022/2026 extension with two context-menu commands and a
+  dockable result tool window, calling the same `/api/analyze` endpoint.
+- **Shipped without ever being compiled**, and labelled as such in `vsix/BUILD.md`, the
+  commit message, and the README. It was authored on a machine with no Visual Studio IDE,
+  no VS SDK, and no .NET SDK — only headless Build Tools, which cannot build a VSIX.
+  Recording this because an unverified artifact that *looks* finished is a trap: BUILD.md
+  lists the specific places a first build is most likely to fail rather than leaving them
+  to be discovered.
+- **Why classic VSSDK over VisualStudio.Extensibility:** the newer model is SDK-style and
+  .NET 8, which reads more modern, but its tool windows and dialogs must be built with
+  Remote UI — thinly documented and easy to get subtly wrong. For code no compiler here
+  can check, the heavily-documented template is the lower-risk choice, consistent with
+  this project's "prefer boring, proven" rule.
+- **Why `InstallationTarget [17.0,)`:** VS 2026 drives extension compatibility by API
+  version, and that version is still 17.x, so a single manifest covers 2022 and 2026 and
+  a future major does not force a republish.
+- **Why `DataContractJsonSerializer` and not Json.NET:** Visual Studio loads its own
+  Json.NET into the same process; an extension carrying a different version is a classic
+  source of assembly-binding failures that only appear in someone else's IDE. The DTOs are
+  simple enough that the in-box serializer costs nothing.
+- **Data handling is the constraint that shaped the design:** no file watching, no
+  background upload, nothing transmitted without a user action. The no-selection path
+  scans for error codes and routes through a checkbox dialog; when it finds none it says
+  so rather than falling back to sending the whole file — that silent fallback is the
+  failure mode worth designing against. The Solution Explorer command does send a whole
+  file, but only behind an explicit confirmation, because that is what the user clicked.
+- **Why `ErrorCodeScanner` has no VS dependency:** it is the only class here with real
+  logic rather than shell plumbing, so keeping it a plain static class leaves the one
+  piece worth testing testable without an IDE.
+- **CI is untouched:** `ubuntu-latest` cannot build a VSIX, and adding a Windows job for
+  an uncompiled project would only produce a red pipeline on day one.
 
 ---
 

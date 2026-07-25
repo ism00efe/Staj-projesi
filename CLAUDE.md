@@ -147,7 +147,10 @@ Persistent, every-session rules for this project. Read before making changes.
   cross-encoder re-ranking (on by default; needs CUDA torch to be fast). Any re-ranker
   **must be multilingual** (Turkish queries against English documents) — English-only
   MS-MARCO models degrade ranking.
-- UI: Gradio, Turkish labels; English knowledge base, Turkish answers
+- Interfaces: one FastAPI JSON contract (`api/`, `POST /api/analyze`) with three thin
+  clients — a vanilla HTML/CSS/JS page served from `ui/static/` (no npm, no build step),
+  Swagger at `/docs`, and a Visual Studio extension (`vsix/`, classic VSSDK, currently
+  uncompiled — see D24). Turkish labels; English knowledge base, Turkish answers
 - Observability: structured (JSON) logging with a propagated `trace_id`
   (`contextvars`-based, no signature changes), Prometheus metrics (collection always on,
   `/metrics` server opt-in via `METRICS_ENABLED`)

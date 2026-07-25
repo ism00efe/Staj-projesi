@@ -93,12 +93,30 @@ src/payment_assistant/
     logs.py           #   JSON/XML log summarization
     prompts.py        #   versioned prompt templates
     engine.py         #   RAGEngine (retrieve -> prompt -> generate -> cite)
+  api/                # HTTP layer (transport only, no business logic)
+    schemas.py        #   request/response models + Answer -> JSON mapping
+    middleware.py     #   trace-id binding, body-size cap, rate limiter
+    routes.py         #   POST /api/analyze, GET /api/health
+    errors.py         #   one error envelope for every failure
+    app.py            #   create_app(service, settings) + uvicorn launch glue
   ui/
-    app.py            #   Gradio UI (presentation only)
+    static/           #   index.html, style.css, app.js (vanilla, no build step)
+vsix/                 # Visual Studio extension (C#) — see vsix/BUILD.md
 scripts/              # generate_data.py, ingest.py, run_app.py
 eval/                 # dataset.jsonl + evaluate.py
-tests/                # mirrors the source tree; llm/ rag/ ui/ observability/ security/ + conftest fakes
+tests/                # mirrors the source tree; llm/ rag/ observability/ security/ + conftest fakes
 ```
+
+## Interfaces
+
+Everything goes through one contract — `POST /api/analyze`. There is no second code path:
+the web UI and the Visual Studio extension are both thin clients over it.
+
+| Client | Where | Notes |
+|---|---|---|
+| Web UI | `http://127.0.0.1:7860/` | Two-panel page, Turkish labels, no framework |
+| REST API | `POST /api/analyze` | Interactive docs at `/docs` |
+| Visual Studio | `vsix/` | VS 2022/2026 extension — **not yet compiled**, see [`vsix/BUILD.md`](vsix/BUILD.md) |
 
 ## Prerequisites
 
@@ -130,7 +148,7 @@ ollama pull qwen2.5:7b-instruct
 python scripts/generate_data.py
 python scripts/ingest.py
 
-# 5) Run the app  ->  http://127.0.0.1:7860
+# 5) Run the app  ->  http://127.0.0.1:7860  (API docs at /docs)
 python scripts/run_app.py
 ```
 
@@ -158,15 +176,79 @@ All settings live in `.env` (see [`.env.example`](.env.example)). Key ones:
 | `METRICS_ENABLED` | `false` | Expose Prometheus `/metrics` on `METRICS_PORT` |
 | `METRICS_PORT` | `9090` | Port for the metrics HTTP server |
 | `INPUT_GUARD_ENABLED` | `true` | Block prompt-injection patterns before the LLM |
-| `MAX_UPLOAD_BYTES` | `2000000` | Reject uploaded log files above this size |
+| `MAX_UPLOAD_BYTES` | `2000000` | Reject log content above this size |
+| `API_MAX_BODY_BYTES` | `5000000` | Whole-request body cap (checked before reading) |
+| `API_RATE_LIMIT_ENABLED` | `true` | Per-client sliding-window limiter on `/api/*` |
+| `API_RATE_LIMIT_REQUESTS` | `30` | Requests allowed per window, per client |
+| `API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Window length |
+| `API_TRUSTED_PROXY_HOPS` | `0` | Proxy hops to trust in `X-Forwarded-For`; `0` = ignore it |
+
+## API
+
+One endpoint, used by every client:
+
+```bash
+curl -X POST http://127.0.0.1:7860/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Bir ödeme insufficient funds hatası verdi, ne yapmalıyım?"}'
+```
+
+```json
+{
+  "answer": "RC-51 yetersiz bakiye anlamına gelir [S1] ...",
+  "sources": [
+    {"tag": "S1", "title": "Insufficient Funds Runbook", "doc_type": "runbook",
+     "source_path": "runbook_rc51.md", "score": 0.91, "document_id": "runbook_rc51",
+     "cited": true, "excerpt": "Retry after the customer funds the account ..."}
+  ],
+  "security_summary": {
+    "blocked": false,
+    "redactions": [{"label": "[CARD]", "count": 1}],
+    "redaction_total": 1
+  },
+  "trace_id": "9b9df14e0a38"
+}
+```
+
+`file_content` optionally carries log text. **The API never accepts a file path** — only
+content — and unknown fields are rejected with a 422, so that is an enforced property
+rather than a convention. `GET /api/health` returns the indexed chunk count and the
+server's upload limit. Interactive docs: [`/docs`](http://127.0.0.1:7860/docs).
+
+Errors share one envelope, with Turkish user-facing messages:
+
+```json
+{"error": {"code": "rate_limited", "message": "Çok fazla istek gönderdiniz. ..."},
+ "trace_id": "9b9df14e0a38"}
+```
+
+## Visual Studio extension
+
+`vsix/` adds "Analyze with Payment Assistant" to the editor and Solution Explorer context
+menus, with results in a dockable tool window. It never transmits anything without an
+explicit action: with no selection it scans `.log`/`.json`/`.xml` for error codes and asks
+which lines to send.
+
+> **Not yet compiled.** It was authored on a machine without the Visual Studio IDE or SDK.
+> See [`vsix/BUILD.md`](vsix/BUILD.md) for prerequisites and the known first-build risks.
 
 ## Observability
 
-Every request gets a `trace_id`, generated once in `RAGEngine.answer()` and propagated
-to every layer (retriever, reranker, LLM provider) via a `contextvars.ContextVar` — no
-function signature had to change to carry it. It's shown in the Gradio UI (`🔎 trace_id:
-...`) and attached to every log line for that request, so a user-reported issue can be
-traced end to end through the logs from one id.
+Every request gets a `trace_id`, bound once at the HTTP boundary and inherited by every
+layer below it (engine, retriever, reranker, LLM provider) via a `contextvars.ContextVar`
+— no function signature had to change to carry it. It's returned in every API response,
+shown in the web UI (`İzleme kimliği`), and attached to every log line for that request,
+so a user-reported issue can be traced end to end through the logs from one id:
+
+```
+9b9df14e0a38   sanitize     ok
+9b9df14e0a38   embed        ok
+9b9df14e0a38   rerank       ok
+9b9df14e0a38   retrieve     ok
+9b9df14e0a38   generate     ok
+9b9df14e0a38   cite         ok
+9b9df14e0a38   api.analyze  ok
+```
 
 **Structured logs.** `LOG_FORMAT=json` (default) emits one JSON object per line:
 
@@ -219,12 +301,30 @@ logged (category only, never the query text). Known limitation: patterns target 
 jailbreak phrasing, documented in [`DECISIONS.md`](DECISIONS.md) (D18). Tests:
 [`tests/security/test_guard.py`](tests/security/test_guard.py).
 
-**Upload hardening.** Uploaded log files above `MAX_UPLOAD_BYTES` (default 2 MB) are
-rejected before being read. XML content with a `DOCTYPE`/`ENTITY` declaration is
-rejected before parsing (defends against entity-expansion / "billion laughs" DoS —
-Python's `ElementTree` doesn't resolve *external* entities, but internal expansion can
-still exhaust memory from a tiny payload). See D19 in `DECISIONS.md` for what's
-deliberately *not* hardened here (path traversal, rate limiting) and why.
+**Upload hardening.** Log content above `MAX_UPLOAD_BYTES` (default 2 MB) is rejected, as
+is any request body above `API_MAX_BODY_BYTES` (5 MB) — the latter before the body is read
+at all. XML content with a `DOCTYPE`/`ENTITY` declaration is rejected before parsing
+(defends against entity-expansion / "billion laughs" DoS — Python's `ElementTree` doesn't
+resolve *external* entities, but internal expansion can still exhaust memory from a tiny
+payload). See D19 in `DECISIONS.md` for the original reasoning.
+
+**No file paths, by construction.** The API accepts only `file_content` text and rejects
+unknown fields with a 422, so a client cannot ask the server to read a path. This closes
+the path-traversal boundary D19 flagged for a future API layer — without needing the
+allow-listed-directory check D19 anticipated (D22).
+
+**Rate limiting.** A per-client sliding-window limiter guards `/api/*` (30 requests/60s
+by default), returning 429 with `Retry-After`. It is deliberately **per-process and
+best-effort**: it does not survive a restart or coordinate across replicas, and a reverse
+proxy remains the right answer for a real multi-user deployment. See D23 for why this
+supersedes D19's deferral. `X-Forwarded-For` is ignored unless `API_TRUSTED_PROXY_HOPS`
+is set, and is then read from the right — trusting the leftmost entry would let any caller
+forge its way around the limit.
+
+**Errors never leak internals.** A 500 returns a generic Turkish message plus the trace
+id; the exception text goes to the logs only. Validation failures report field *names*,
+never the submitted values (FastAPI's default handler echoes them, which for this API
+would mean handing raw user content straight back out).
 
 **PII leak-scan suite.** A dedicated test suite pushes fake-but-realistic PII (every
 category above) through the real ingestion path, the real sparse index, a full
@@ -248,10 +348,14 @@ pytest --cov                        # with coverage summary
 pytest --cov --cov-report=html      # detailed HTML report in htmlcov/
 ```
 
-The suite is fast and offline (~230 tests, ~25s) — models, Chroma, the LLM, and the
+The suite is fast and offline (~280 tests, ~15s) — models, Chroma, the LLM, and the
 Prometheus HTTP server are replaced by in-memory fakes/monkeypatches (`tests/conftest.py`),
-except the vector-store tests which run real Chroma in a temp dir. Coverage is ~99% of
-statements across the package (launch glue excluded).
+except the vector-store tests which run real Chroma in a temp dir. The API tests drive the
+app through `TestClient`, so no server is started either. Coverage is ~99% of statements
+across the package (launch glue excluded).
+
+The C# extension under `vsix/` has no automated tests and is not built by CI — see
+[`vsix/BUILD.md`](vsix/BUILD.md).
 
 ## CI/CD
 
@@ -264,7 +368,11 @@ on GitHub Actions:
 2. **`build`** — only runs if `test` passes; builds the Docker image
    (`docker build -t payment-rag-assistant .`) to prove the container still builds. It
    does not push the image anywhere — that's future scope, not needed for an internship
-   MVP.
+   MVP. This job is also the only check that the web UI's static assets actually ship in
+   the wheel: pytest puts `src/` ahead of site-packages, so no Python test can catch a
+   packaging regression, and the `Dockerfile` asserts on the installed files instead.
+
+`vsix/` is outside CI — `ubuntu-latest` cannot build a VSIX (D24).
 
 Run the same checks locally before pushing:
 
@@ -332,19 +440,26 @@ Data preparation & synthetic generation (`datagen.py`) · NLP preprocessing / sa
 (`sanitization.py`) · prompt engineering (`rag/prompts.py`) · embeddings
 (`rag/embeddings.py`) · vector databases & similarity search (`rag/vectorstore.py`) ·
 hybrid retrieval & re-ranking (`rag/sparse_retriever.py`, `rag/retriever.py`,
-`rag/reranker.py`) · RAG (`rag/engine.py`) · Gradio UI (`ui/app.py`) · evaluation
-(`eval/`) · observability — structured logging, distributed trace-id propagation,
-Prometheus metrics (`observability/`) · applied security — prompt-injection defense,
-upload/XXE hardening (`security/`, D18–D19 in `DECISIONS.md`) · testing & coverage
-(`tests/`) · documentation (this README + `DECISIONS.md`).
+`rag/reranker.py`) · RAG (`rag/engine.py`) · REST API design (`api/`) · front-end without
+a framework (`ui/static/`) · IDE tooling / Visual Studio extensibility (`vsix/`) ·
+evaluation (`eval/`) · observability — structured logging, distributed trace-id
+propagation, Prometheus metrics (`observability/`) · applied security — prompt-injection
+defense, upload/XXE hardening, rate limiting, XSS-safe rendering (`security/`, D18–D23 in
+`DECISIONS.md`) · testing & coverage (`tests/`) · documentation (this README +
+`DECISIONS.md`).
 
 ## Roadmap / future work
 
 1. Better synthetic generator (LLM-assisted, more variety).
 2. Retrieval quality: `bge-m3` embeddings; broader injection-guard coverage for
    Turkish-phrased attacks (see D18's documented limitation).
-3. Answer streaming in the UI; conversation history.
-4. Rate limiting at a reverse proxy (nginx/Traefik) in front of the app — the natural
-   place for it once there's a real multi-user deployment (see D19).
-5. Scaling toward ~50 users: swap Chroma → Qdrant, add caching, containerize the LLM.
-6. Kubernetes deployment (intentionally out of scope for the MVP).
+3. Build and verify the Visual Studio extension on a machine with the VS SDK, then add a
+   Windows CI job for it (see [`vsix/BUILD.md`](vsix/BUILD.md)).
+4. Answer streaming (`text/event-stream` on the API, incremental render in the UI);
+   conversation history.
+5. Move rate limiting to a reverse proxy (nginx/Traefik) once there's a real multi-user
+   deployment — the in-process limiter is per-process best-effort (see D23).
+6. A `status` field on `Answer`, so clients no longer infer "blocked" from the refusal
+   text (see D22); `AssistantService.ask_with_log_file` is now unused and can go with it.
+7. Scaling toward ~50 users: swap Chroma → Qdrant, add caching, containerize the LLM.
+8. Kubernetes deployment (intentionally out of scope for the MVP).
