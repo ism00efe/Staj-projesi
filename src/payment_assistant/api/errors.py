@@ -17,8 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from ..observability import API_REQUESTS, get_trace_id
-from ..observability.logging_context import has_trace_id
+from ..observability import API_REQUESTS, get_trace_id, has_trace_id
 from .schemas import ErrorBody, ErrorResponse
 
 logger = logging.getLogger(__name__)
@@ -82,7 +81,6 @@ def error_response(
         error=ErrorBody(code=code, message=message, fields=fields),
         trace_id=trace_id or get_trace_id(),
     )
-
     return JSONResponse(
         status_code=status_code,
         content=payload.model_dump(),

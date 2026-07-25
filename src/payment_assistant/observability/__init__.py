@@ -16,6 +16,7 @@ from .logging_context import (
     TraceIdFilter,
     bind_trace_id,
     get_trace_id,
+    has_trace_id,
     log_step,
     new_trace_id,
 )
@@ -52,6 +53,7 @@ __all__ = [
     "TraceIdFilter",
     "bind_trace_id",
     "get_trace_id",
+    "has_trace_id",
     "new_trace_id",
     "log_step",
     "instrumented_step",

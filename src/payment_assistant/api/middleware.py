@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from ..observability import API_REQUESTS, bind_trace_id
+from .errors import error_response
 
 # Upper bound on distinct clients tracked at once. Without a cap, a source rotating its
 # address would grow the bucket dict without limit — turning a denial-of-service defense
@@ -193,10 +194,6 @@ class BodySizeLimitMiddleware:
         This runs before routing, so there is no matched route to label the metric with
         — hence ``endpoint="unknown"``, which is still a fixed, low-cardinality value.
         """
-
-        # Imported here to avoid a circular import: errors.py imports schemas, which is
-        # fine, but routes.py imports this module.
-        from .errors import error_response
 
         API_REQUESTS.labels(endpoint="unknown", outcome="payload_too_large").inc()
         response = error_response(
