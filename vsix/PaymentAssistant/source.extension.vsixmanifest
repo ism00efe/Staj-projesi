@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PackageManifest Version="2.0.0"
+                 xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011"
+                 xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
+  <Metadata>
+    <Identity Id="PaymentAssistant.0e84291e-435e-4acc-a08d-2746b5c93ebd"
+              Version="1.0"
+              Language="en-US"
+              Publisher="Payment Systems Team" />
+    <DisplayName>Payment Assistant</DisplayName>
+    <Description xml:space="preserve">Analyze payment logs and error codes from inside Visual Studio. Sends the selected text (or the error-code lines you pick) to the Payment Assistant service and shows a grounded, source-cited answer in a dockable tool window.</Description>
+    <MoreInfo>https://github.com/ism00efe/Staj-projesi</MoreInfo>
+    <Tags>payment, logs, analysis, rag, troubleshooting</Tags>
+  </Metadata>
+
+  <Installation>
+    <!-- Visual Studio 2026 keeps API version 17.x, so one lower bound covers VS 2022 and
+         2026. The upper bound is deliberately open: with the API-version compatibility
+         model a future major release does not require republishing this extension. -->
+    <InstallationTarget Id="Microsoft.VisualStudio.Community" Version="[17.0,)">
+      <ProductArchitecture>amd64</ProductArchitecture>
+    </InstallationTarget>
+  </Installation>
+
+  <Dependencies>
+    <Dependency Id="Microsoft.Framework.NDP" DisplayName="Microsoft .NET Framework"
+                d:Source="Manual" Version="[4.7.2,)" />
+  </Dependencies>
+
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor"
+                  Version="[17.0,)"
+                  DisplayName="Visual Studio core editor" />
+  </Prerequisites>
+
+  <Assets>
+    <Asset Type="Microsoft.VisualStudio.VsPackage"
+           d:Source="Project"
+           d:ProjectName="%CurrentProject%"
+           Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />
+  </Assets>
+</PackageManifest>

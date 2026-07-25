@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable"
+              xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- Command definitions for the Payment Assistant extension.
+
+       Two commands, deliberately placed on context menus rather than a top-level menu:
+       both act on something the user has already pointed at (a selection, or a file in
+       Solution Explorer), so they belong where that thing is. -->
+
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidPaymentAssistantPackage">
+
+    <Groups>
+      <!-- Editor (code window) context menu -->
+      <Group guid="guidPaymentAssistantCmdSet" id="EditorContextGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_CODEWIN" />
+      </Group>
+
+      <!-- Solution Explorer, single file selected -->
+      <Group guid="guidPaymentAssistantCmdSet" id="SolutionExplorerGroup" priority="0x0600">
+        <Parent guid="guidSHLMainMenu" id="IDM_VS_CTXT_ITEMNODE" />
+      </Group>
+    </Groups>
+
+    <Buttons>
+      <Button guid="guidPaymentAssistantCmdSet" id="AnalyzeSelectionCommandId"
+              priority="0x0100" type="Button">
+        <Parent guid="guidPaymentAssistantCmdSet" id="EditorContextGroup" />
+        <Strings>
+          <ButtonText>Analyze with Payment Assistant</ButtonText>
+        </Strings>
+      </Button>
+
+      <Button guid="guidPaymentAssistantCmdSet" id="AnalyzeFileCommandId"
+              priority="0x0100" type="Button">
+        <Parent guid="guidPaymentAssistantCmdSet" id="SolutionExplorerGroup" />
+        <!-- Visibility is decided at runtime by BeforeQueryStatus (log/json/xml only),
+             so the command must not be pruned from the menu before that runs. -->
+        <CommandFlag>DynamicVisibility</CommandFlag>
+        <CommandFlag>DefaultInvisible</CommandFlag>
+        <Strings>
+          <ButtonText>Analyze with Payment Assistant</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+
+  </Commands>
+
+  <Symbols>
+    <GuidSymbol name="guidPaymentAssistantPackage"
+                value="{c425ce3c-df4b-4157-9076-a912b5e79f5c}" />
+
+    <!-- Must match PaymentAssistantPackage.CommandSetGuid -->
+    <GuidSymbol name="guidPaymentAssistantCmdSet"
+                value="{d33cab5c-15f8-4cc0-a92f-45e827fbf23c}">
+      <IDSymbol name="EditorContextGroup" value="0x1020" />
+      <IDSymbol name="SolutionExplorerGroup" value="0x1021" />
+
+      <!-- Must match AnalyzeSelectionCommand.CommandId / AnalyzeFileCommand.CommandId -->
+      <IDSymbol name="AnalyzeSelectionCommandId" value="0x0100" />
+      <IDSymbol name="AnalyzeFileCommandId" value="0x0101" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

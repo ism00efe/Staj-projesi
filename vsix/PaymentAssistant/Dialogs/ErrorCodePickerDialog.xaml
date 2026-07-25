@@ -1,0 +1,51 @@
+<platformUi:DialogWindow x:Class="PaymentAssistant.Dialogs.ErrorCodePickerDialog"
+                         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                         xmlns:platformUi="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+                         Title="Payment Assistant — Gönderilecek Satırlar"
+                         Width="620" Height="460"
+                         WindowStartupLocation="CenterOwner"
+                         ShowInTaskbar="False">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,8"
+                   Text="Bu dosyada aşağıdaki hata kodları bulundu. Yalnızca işaretlediğiniz satırlar analiz için gönderilir; dosyanın tamamı gönderilmez." />
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+            <Button x:Name="SelectAllButton" Content="Tümünü Seç" Padding="10,3" Click="OnSelectAll" />
+            <Button x:Name="SelectNoneButton" Content="Tümünü Kaldır" Padding="10,3" Margin="8,0,0,0" Click="OnSelectNone" />
+        </StackPanel>
+
+        <Border Grid.Row="2" BorderBrush="#FF999999" BorderThickness="1">
+            <ListBox x:Name="OccurrenceList"
+                     HorizontalContentAlignment="Stretch"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Margin="2">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Occurrence.Display}" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding Preview}"
+                                           Opacity="0.75"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </CheckBox>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button x:Name="SendButton" Content="Gönder" IsDefault="True" Padding="16,4" Click="OnSend" />
+            <Button x:Name="CancelButton" Content="İptal" IsCancel="True" Padding="16,4" Margin="8,0,0,0" Click="OnCancel" />
+        </StackPanel>
+    </Grid>
+</platformUi:DialogWindow>

@@ -1,0 +1,76 @@
+<UserControl x:Class="PaymentAssistant.ToolWindows.ResultToolWindowControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vsshell="clr-namespace:Microsoft.VisualStudio.Shell;assembly=Microsoft.VisualStudio.Shell.15.0"
+             xmlns:vsui="clr-namespace:Microsoft.VisualStudio.PlatformUI;assembly=Microsoft.VisualStudio.Shell.15.0"
+             Background="{DynamicResource {x:Static vsshell:VsBrushes.WindowKey}}"
+             Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
+             mc:Ignorable="d"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             d:DesignHeight="500" d:DesignWidth="420">
+
+    <UserControl.Resources>
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,12,0,4" />
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Status line: idle / busy / error -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+            <TextBlock x:Name="StatusText"
+                       Text="Analiz bekleniyor."
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="Analiz Sonucu" Style="{StaticResource SectionHeader}" />
+                <TextBox x:Name="AnswerText"
+                         IsReadOnly="True"
+                         TextWrapping="Wrap"
+                         BorderThickness="0"
+                         Background="Transparent"
+                         Foreground="{DynamicResource {x:Static vsshell:VsBrushes.WindowTextKey}}"
+                         Text="" />
+
+                <TextBlock x:Name="SourcesHeader"
+                           Text="Kullanılan Kaynaklar"
+                           Style="{StaticResource SectionHeader}" />
+                <ListBox x:Name="SourcesList"
+                         MaxHeight="240"
+                         MouseDoubleClick="OnSourceDoubleClick"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ToolTip="Bir kaynağa çift tıklayarak dosyayı açın.">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,2">
+                                <TextBlock Text="{Binding Display}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding SourcePath}"
+                                           Opacity="0.7"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <TextBlock Text="Güvenlik Özeti" Style="{StaticResource SectionHeader}" />
+                <TextBlock x:Name="SecurityText" TextWrapping="Wrap" Text="—" />
+
+                <TextBlock x:Name="TraceText"
+                           Margin="0,12,0,0"
+                           Opacity="0.7"
+                           TextWrapping="Wrap"
+                           Text="" />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
