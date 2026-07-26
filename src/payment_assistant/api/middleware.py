@@ -158,37 +158,56 @@ class BodySizeLimitMiddleware:
     Two paths: a declared ``Content-Length`` is rejected before a single body byte is
     read; a chunked body with no declared length is counted as it streams and aborted as
     soon as it crosses the limit.
+
+    ``route_overrides`` lets one path use a different (larger) cap than the general one —
+    ``/api/ingest`` accepts a real file, which is bigger than any JSON request this API
+    otherwise takes. Matched by exact path, checked before the general limit applies, so
+    every other route is unaffected.
     """
 
-    def __init__(self, app: ASGIApp, *, max_bytes: int, message: str) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        *,
+        max_bytes: int,
+        message: str,
+        route_overrides: dict[str, tuple[int, str]] | None = None,
+    ) -> None:
         self.app = app
         self.max_bytes = max_bytes
         self.message = message
+        self.route_overrides = route_overrides or {}
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
+        max_bytes, message = self.route_overrides.get(
+            scope.get("path", ""), (self.max_bytes, self.message)
+        )
+
         declared = Headers(scope=scope).get("content-length")
-        if declared and declared.isdigit() and int(declared) > self.max_bytes:
-            await self._reject(scope, receive, send)
+        if declared and declared.isdigit() and int(declared) > max_bytes:
+            await self._reject(scope, receive, send, message)
             return
 
         seen = 0
 
         async def counting_receive() -> Message:
             nonlocal seen
-            message = await receive()
-            if message["type"] == "http.request":
-                seen += len(message.get("body", b""))
-                if seen > self.max_bytes:
-                    raise _BodyTooLarge(self.message)
-            return message
+            message_in = await receive()
+            if message_in["type"] == "http.request":
+                seen += len(message_in.get("body", b""))
+                if seen > max_bytes:
+                    raise _BodyTooLarge(message)
+            return message_in
 
         await self.app(scope, counting_receive, send)
 
-    async def _reject(self, scope: Scope, receive: Receive, send: Send) -> None:
+    async def _reject(
+        self, scope: Scope, receive: Receive, send: Send, message: str
+    ) -> None:
         """Answer a declared-oversize request without invoking the app at all.
 
         This runs before routing, so there is no matched route to label the metric with
@@ -199,6 +218,6 @@ class BodySizeLimitMiddleware:
         response = error_response(
             status_code=413,
             code="payload_too_large",
-            message=self.message,
+            message=message,
         )
         await response(scope, receive, send)

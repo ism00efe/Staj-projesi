@@ -54,6 +54,35 @@
           <button type="button" id="clear" class="btn btn--ghost">Temizle</button>
         </div>
       </form>
+
+      <details class="kb-update">
+        <summary class="kb-update__summary">Bilgi Tabanını Güncelle</summary>
+        <div class="kb-update__body">
+          <p class="field__hint kb-update__hint">
+            Yeni bir düzenleme veya hata kodu belgesi ekleyin. İçerik, indekslenmeden
+            önce sunucuda aynı gizlilik filtresinden geçirilir.
+          </p>
+
+          <label class="field__label" for="kb-file">Belge</label>
+          <div class="file">
+            <input
+              type="file"
+              id="kb-file"
+              accept=".pdf,.txt,.md,.json,.xml,.log"
+              aria-describedby="kb-file-status"
+            >
+            <p id="kb-file-status" class="file__status" role="status">Dosya seçilmedi.</p>
+          </div>
+
+          <div class="actions">
+            <button type="button" id="kb-upload" class="btn btn--primary" disabled>
+              Yükle ve İndeksle
+            </button>
+          </div>
+
+          <p id="kb-upload-status" class="kb-update__status" role="status" hidden></p>
+        </div>
+      </details>
     </section>
 
     <!-- ------------------------------------------------------------- results -->

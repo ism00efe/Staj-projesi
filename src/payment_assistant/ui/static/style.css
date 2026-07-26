@@ -157,6 +157,38 @@ summary:focus-visible {
 
 .actions { display: flex; gap: 10px; margin-top: 20px; }
 
+/* --------------------------------------------------------- knowledge-base update */
+
+.kb-update {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.kb-update__summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--navy-600);
+  list-style: none;
+}
+.kb-update__summary::-webkit-details-marker { display: none; }
+.kb-update__summary::before { content: "▸ "; }
+.kb-update[open] > .kb-update__summary::before { content: "▾ "; }
+
+.kb-update__hint { margin-top: 10px; }
+
+.kb-update__body .actions { margin-top: 14px; }
+
+.kb-update__status {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.kb-update__status--busy { color: var(--navy-600); font-weight: 600; }
+.kb-update__status--ok { color: var(--ok); font-weight: 600; }
+.kb-update__status--error { color: var(--danger); font-weight: 600; }
+
 .btn {
   padding: 9px 18px;
   border-radius: var(--radius);

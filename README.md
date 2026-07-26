@@ -109,13 +109,14 @@ tests/                # mirrors the source tree; llm/ rag/ observability/ securi
 
 ## Interfaces
 
-Everything goes through one contract — `POST /api/analyze`. There is no second code path:
-the web UI and the Visual Studio extension are both thin clients over it.
+There is no second code path: the web UI and the Visual Studio extension are both thin
+clients over the same two JSON endpoints — `POST /api/analyze` for questions/log analysis,
+`POST /api/ingest` for adding a document to the knowledge base.
 
 | Client | Where | Notes |
 |---|---|---|
-| Web UI | `http://127.0.0.1:7860/` | Two-panel page, Turkish labels, no framework |
-| REST API | `POST /api/analyze` | Interactive docs at `/docs` |
+| Web UI | `http://127.0.0.1:7860/` | Two-panel page, Turkish labels, no framework; includes a "Bilgi Tabanını Güncelle" upload section |
+| REST API | `POST /api/analyze`, `POST /api/ingest` | Interactive docs at `/docs` |
 | Visual Studio | `vsix/` | VS 2022/2026 extension — builds clean; not yet run in an IDE, see [`vsix/BUILD.md`](vsix/BUILD.md) |
 
 ## Prerequisites
@@ -182,6 +183,9 @@ All settings live in `.env` (see [`.env.example`](.env.example)). Key ones:
 | `API_RATE_LIMIT_REQUESTS` | `30` | Requests allowed per window, per client |
 | `API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Window length |
 | `API_TRUSTED_PROXY_HOPS` | `0` | Proxy hops to trust in `X-Forwarded-For`; `0` = ignore it |
+| `API_MAX_UPLOAD_BYTES` | `10000000` | Per-file cap for `POST /api/ingest` |
+| `API_UPLOAD_RATE_LIMIT_REQUESTS` | `5` | Uploads allowed per window, per client |
+| `API_UPLOAD_RATE_LIMIT_WINDOW_SECONDS` | `3600` | Window length for the upload limiter |
 
 ## API
 
@@ -213,7 +217,34 @@ curl -X POST http://127.0.0.1:7860/api/analyze \
 `file_content` optionally carries log text. **The API never accepts a file path** — only
 content — and unknown fields are rejected with a 422, so that is an enforced property
 rather than a convention. `GET /api/health` returns the indexed chunk count and the
-server's upload limit. Interactive docs: [`/docs`](http://127.0.0.1:7860/docs).
+server's upload limits. Interactive docs: [`/docs`](http://127.0.0.1:7860/docs).
+
+Adding a document to the knowledge base is a second endpoint, `multipart/form-data`:
+
+```bash
+curl -X POST http://127.0.0.1:7860/api/ingest \
+  -F "file=@visa_reason_codes_2026.pdf"
+```
+
+```json
+{
+  "status": "ok",
+  "filename": "visa_reason_codes_2026.pdf",
+  "chunks_added": 12,
+  "redactions": [],
+  "redaction_total": 0,
+  "trace_id": "9b9df14e0a38"
+}
+```
+
+Accepts `.pdf`, `.txt`, `.md`, `.json`, `.xml`, `.log` (validated by content, not the
+filename's extension — see **Security** below), up to `API_MAX_UPLOAD_BYTES` (10 MB
+default). The file is sanitized through the exact same `sanitization.py` pipeline as
+every query, chunked, embedded, and appended to the existing collection — it never
+resets the knowledge base and never touches disk. A tighter rate limit applies
+(`API_UPLOAD_RATE_LIMIT_*`, 5/hour default) than the general `/api/*` limit. See D25 in
+`DECISIONS.md` for the design (including a known limitation: uploads are not yet
+reflected in the BM25 sparse index until the process restarts).
 
 Errors share one envelope, with Turkish user-facing messages:
 
@@ -317,6 +348,16 @@ at all. XML content with a `DOCTYPE`/`ENTITY` declaration is rejected before par
 resolve *external* entities, but internal expansion can still exhaust memory from a tiny
 payload). See D19 in `DECISIONS.md` for the original reasoning.
 
+**Knowledge-base upload validation.** `POST /api/ingest` checks a file's actual bytes, not
+its filename: `filetype` verifies a claimed `.pdf` carries a real PDF signature (and
+rejects any *other* recognizable binary signature outright, regardless of extension);
+the plain-text formats have no signature of their own, so those must instead decode
+cleanly as UTF-8. Content is sanitized through the identical `sanitization.py` pipeline
+used for every query before it is chunked or embedded, capped at `API_MAX_UPLOAD_BYTES`
+(10 MB default), rate-limited separately and more tightly than `/api/analyze`
+(`API_UPLOAD_RATE_LIMIT_*`, 5/hour default), and never written to disk. See D25 in
+`DECISIONS.md`.
+
 **No file paths, by construction.** The API accepts only `file_content` text and rejects
 unknown fields with a 422, so a client cannot ask the server to read a path. This closes
 the path-traversal boundary D19 flagged for a future API layer — without needing the
@@ -357,7 +398,7 @@ pytest --cov                        # with coverage summary
 pytest --cov --cov-report=html      # detailed HTML report in htmlcov/
 ```
 
-The suite is fast and offline (~280 tests, ~15s) — models, Chroma, the LLM, and the
+The suite is fast and offline (~330 tests, ~30s) — models, Chroma, the LLM, and the
 Prometheus HTTP server are replaced by in-memory fakes/monkeypatches (`tests/conftest.py`),
 except the vector-store tests which run real Chroma in a temp dir. The API tests drive the
 app through `TestClient`, so no server is started either. Coverage is ~99% of statements
@@ -453,9 +494,9 @@ hybrid retrieval & re-ranking (`rag/sparse_retriever.py`, `rag/retriever.py`,
 a framework (`ui/static/`) · IDE tooling / Visual Studio extensibility (`vsix/`) ·
 evaluation (`eval/`) · observability — structured logging, distributed trace-id
 propagation, Prometheus metrics (`observability/`) · applied security — prompt-injection
-defense, upload/XXE hardening, rate limiting, XSS-safe rendering (`security/`, D18–D23 in
-`DECISIONS.md`) · testing & coverage (`tests/`) · documentation (this README +
-`DECISIONS.md`).
+defense, upload/XXE hardening, rate limiting, XSS-safe rendering, content-based file-type
+validation (`security/`, D18–D25 in `DECISIONS.md`) · testing & coverage (`tests/`) ·
+documentation (this README + `DECISIONS.md`).
 
 ## Roadmap / future work
 
@@ -473,3 +514,9 @@ defense, upload/XXE hardening, rate limiting, XSS-safe rendering (`security/`, D
    text (see D22); `AssistantService.ask_with_log_file` is now unused and can go with it.
 7. Scaling toward ~50 users: swap Chroma → Qdrant, add caching, containerize the LLM.
 8. Kubernetes deployment (intentionally out of scope for the MVP).
+9. Rebuild (or incrementally update) the BM25 sparse index when a document is uploaded,
+   so `/api/ingest` content gets the same lexical-match boost as the corpus loaded at
+   startup, not just dense retrieval (see D25's documented limitation).
+10. Screen uploaded document content for prompt-injection patterns, the same way queries
+    already are — uploads are a new, less-trusted source of text that ends up in an LLM
+    prompt as retrieved context, and `security/guard.py` does not see it today (see D25).

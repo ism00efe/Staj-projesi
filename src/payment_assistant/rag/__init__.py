@@ -6,7 +6,15 @@ Re-exports the pieces the composition root wires together, so callers can do
 
 from .embeddings import EmbeddingProvider, SentenceTransformerEmbeddings
 from .engine import RAGEngine
-from .ingestion import chunk_document, ingest, load_corpus
+from .ingestion import (
+    EmptyContent,
+    UnsupportedFileType,
+    chunk_document,
+    extract_text,
+    ingest,
+    ingest_single_document,
+    load_corpus,
+)
 from .reranker import CrossEncoderReranker, Reranker
 from .retriever import (
     DenseRetriever,
@@ -23,6 +31,10 @@ __all__ = [
     "RAGEngine",
     "chunk_document",
     "ingest",
+    "ingest_single_document",
+    "extract_text",
+    "UnsupportedFileType",
+    "EmptyContent",
     "load_corpus",
     "ChromaVectorStore",
     "VectorStore",

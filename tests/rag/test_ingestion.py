@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
+import io
+
 import pytest
 
 from payment_assistant.models import Document
 from payment_assistant.rag.ingestion import (
+    EmptyContent,
+    UnsupportedFileType,
     _infer_doc_type,
     _infer_title,
     chunk_document,
+    extract_text,
     ingest,
+    ingest_single_document,
     load_corpus,
 )
 from tests.conftest import FakeEmbeddings, FakeVectorStore
@@ -108,3 +114,162 @@ def test_ingest_empty_corpus_returns_zero(tmp_path):
     (tmp_path / "readme.png").write_bytes(b"x")  # no supported docs
     store = FakeVectorStore()
     assert ingest(str(tmp_path), FakeEmbeddings(), store, chunk_size=500, overlap=50) == 0
+
+
+# --- extract_text: content-based upload validation ------------------------------
+@pytest.mark.parametrize("suffix", [".md", ".txt", ".json", ".xml", ".log"])
+def test_extract_text_accepts_every_supported_text_suffix(suffix):
+    assert extract_text(f"doc{suffix}", "merhaba dünya".encode()) == "merhaba dünya"
+
+
+def test_extract_text_does_not_require_valid_json_or_xml_structure():
+    """Matches `load_corpus`, which has never structurally parsed these — a corpus
+    .json/.xml file is opaque text there too, only the extension gates it."""
+
+    assert extract_text("notes.json", b"not actually json") == "not actually json"
+    assert extract_text("notes.xml", b"<unclosed>") == "<unclosed>"
+
+
+def test_extract_text_rejects_unsupported_extension():
+    with pytest.raises(UnsupportedFileType, match="exe"):
+        extract_text("virus.exe", b"MZ\x90\x00")
+
+
+def test_extract_text_rejects_empty_content():
+    with pytest.raises(EmptyContent):
+        extract_text("empty.txt", b"")
+
+
+def test_extract_text_rejects_whitespace_only_content():
+    with pytest.raises(EmptyContent):
+        extract_text("blank.txt", b"   \n\t  ")
+
+
+def test_extract_text_rejects_binary_content_disguised_with_a_text_extension():
+    png_signature = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+    with pytest.raises(UnsupportedFileType, match="png"):
+        extract_text("report.txt", png_signature)
+
+
+def test_extract_text_rejects_undecodable_bytes_with_a_text_extension():
+    with pytest.raises(UnsupportedFileType):
+        extract_text("report.txt", b"\xff\xfe\x00\xff\x80\x81")
+
+
+def test_extract_text_rejects_pdf_extension_without_a_pdf_signature():
+    with pytest.raises(UnsupportedFileType, match="PDF"):
+        extract_text("fake.pdf", b"this is not a pdf")
+
+
+def test_extract_text_real_blank_pdf_has_no_extractable_text():
+    """End-to-end through the real filetype + pypdf integration (no mocking): a
+    structurally valid PDF with a blank page carries a real PDF signature and parses
+    cleanly, but yields no text — which is EmptyContent, not a parse failure."""
+
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=200, height=200)
+    buf = io.BytesIO()
+    writer.write(buf)
+
+    with pytest.raises(EmptyContent):
+        extract_text("blank.pdf", buf.getvalue())
+
+
+class _FakePdfPage:
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def extract_text(self) -> str:
+        return self._text
+
+
+class _FakePdfReader:
+    def __init__(self, stream: object) -> None:
+        self.pages = [_FakePdfPage("First page."), _FakePdfPage("  "), _FakePdfPage("Third page.")]
+
+
+def test_extract_pdf_text_joins_pages_and_skips_blank_ones(monkeypatch):
+    import pypdf
+
+    monkeypatch.setattr(pypdf, "PdfReader", _FakePdfReader)
+    assert extract_text("guide.pdf", b"%PDF-1.4\n%fake") == "First page.\n\nThird page."
+
+
+def test_extract_pdf_text_wraps_a_reader_failure(monkeypatch):
+    class _BrokenReader:
+        def __init__(self, stream: object) -> None:
+            raise ValueError("corrupt xref table")
+
+    import pypdf
+
+    monkeypatch.setattr(pypdf, "PdfReader", _BrokenReader)
+    with pytest.raises(UnsupportedFileType):
+        extract_text("broken.pdf", b"%PDF-1.4\ngarbage")
+
+
+# --- ingest_single_document: the online (upload) ingestion path -----------------
+def test_ingest_single_document_sanitizes_chunks_and_indexes():
+    store = FakeVectorStore()
+    text = "Kart 4111 1111 1111 1111 ile ödeme yapıldı. İletişim: musteri@ornek.com"
+
+    count, redactions = ingest_single_document(
+        text, "visa_2026.md", FakeEmbeddings(), store, chunk_size=500, overlap=50
+    )
+
+    assert count == 1
+    labels = {r.label for r in redactions}
+    assert labels == {"[CARD]", "[EMAIL]"}
+    stored_text = store._chunks[0].text
+    assert "4111" not in stored_text and "musteri@ornek.com" not in stored_text
+    assert "[CARD]" in stored_text and "[EMAIL]" in stored_text
+
+
+def test_ingest_single_document_never_resets_the_store():
+    store = FakeVectorStore()
+    embedder = FakeEmbeddings()
+    ingest_single_document("first doc", "a.md", embedder, store, chunk_size=500, overlap=50)
+    ingest_single_document("second doc", "b.md", embedder, store, chunk_size=500, overlap=50)
+
+    assert store.reset_called == 0
+    assert store.count() == 2
+
+
+def test_ingest_single_document_empty_text_adds_no_chunks():
+    store = FakeVectorStore()
+    count, _ = ingest_single_document(
+        "   ", "empty.md", FakeEmbeddings(), store, chunk_size=500, overlap=50
+    )
+    assert count == 0
+    assert store.count() == 0
+
+
+def test_ingest_single_document_ids_are_unique_across_calls():
+    store = FakeVectorStore()
+    ingest_single_document("first", "same.md", FakeEmbeddings(), store, chunk_size=500, overlap=50)
+    ingest_single_document("second", "same.md", FakeEmbeddings(), store, chunk_size=500, overlap=50)
+
+    ids = {c.document_id for c in store._chunks}
+    assert len(ids) == 2
+    assert all(doc_id.startswith("upload_") for doc_id in ids)
+
+
+def test_ingest_single_document_source_path_is_marked_as_an_upload():
+    store = FakeVectorStore()
+    ingest_single_document("body", "notes.md", FakeEmbeddings(), store, chunk_size=500, overlap=50)
+    assert store._chunks[0].source_path == "uploads/notes.md"
+
+
+def test_ingest_single_document_sanitizes_the_filename_too():
+    # "_" is a \w character, so a card run glued directly to it (as in "kart_4111...")
+    # would sit outside _CARD_RE's \b boundary and never match — this filename keeps a
+    # non-word separator (space) before the digits, exactly like the raw PAN fixtures
+    # used elsewhere in this suite (see tests/security/test_pii_leak_scan.py RAW_CARD).
+    store = FakeVectorStore()
+    ingest_single_document(
+        "gövde metni", "kart 4111 1111 1111 1111.md", FakeEmbeddings(), store,
+        chunk_size=500, overlap=50,
+    )
+    assert "4111 1111 1111 1111" not in store._chunks[0].source_path
+    assert "4111 1111 1111 1111" not in store._chunks[0].title

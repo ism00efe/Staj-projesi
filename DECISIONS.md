@@ -677,6 +677,95 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   `msbuild /restore` line is a cheap, worthwhile follow-up — it was only skipped
   originally because a job for an uncompiled project would have been red on day one.
 
+## D25 — Web UI document upload for operational teams
+- **What:** `POST /api/ingest` (multipart, one file) plus a collapsible "Bilgi Tabanını
+  Güncelle" section in the web UI, so bank operations staff can add a new regulation or
+  error-code document to the knowledge base themselves, without a developer dropping a
+  file into `data/corpus/` and running `scripts/ingest.py`.
+- **Why:** that manual step was fine while the corpus was synthetic and developer-owned;
+  it stops being fine the moment the knowledge base needs to track real, frequently
+  updated documents (a new Visa/Mastercard reason-code table, say) that only the
+  operations team knows have changed.
+- **Routed through `AssistantService`/`RAGEngine`, not wired directly in `routes.py`.**
+  `RAGEngine` already privately holds the one embedder and one store instance the running
+  process uses for every query; a second `ChromaVectorStore`/`SentenceTransformerEmbeddings`
+  built inside the API layer would work (Chroma allows multiple handles to one collection)
+  but would load a second embedding model into memory for no reason. `RAGEngine.ingest_document`
+  and `AssistantService.ingest_document` are one-line delegations, the same shape as the
+  existing `corpus_size()` / `ask()`, so the API layer stays a thin controller and every
+  client goes through the one service entry point — consistent with this file's own
+  "UI must contain no business logic" rule, which applies to `api/` the same way it
+  applies to `ui/`.
+- **`ingest_single_document` lives in `rag/ingestion.py`, not a new module.** It is the
+  online counterpart to the existing offline `ingest()`: same sanitize → chunk → embed
+  steps, reusing `chunk_document`, `_infer_title`, `_infer_doc_type` as-is. The only
+  difference is `store.add()` on an already-open collection instead of `store.reset()` +
+  a fresh directory read — not a different concern, so not a different file.
+- **Content-based validation, not extension trust.** `filetype` (pure Python, no system
+  `libmagic` dependency — the practical reason it beats `python-magic` on a Windows dev
+  box) checks the actual byte signature: a claimed `.pdf` must carry a real `%PDF-`
+  header, and content matching some *other* binary signature (image, archive, ...) is
+  rejected outright regardless of its extension. Plain-text formats (`.md/.txt/.json/
+  .xml/.log`) have no signature of their own — `filetype.guess` correctly returns `None`
+  for them — so those are instead validated by requiring a clean UTF-8 decode, which
+  rejects binary garbage renamed with a text extension the same way. `pypdf` (pure
+  Python, read-only, no compiled dependency) extracts the text layer for real PDFs.
+- **Never touches disk.** Starlette's `UploadFile` already spools to memory (spilling to
+  an auto-cleaned temp file only past its own size threshold) and processing runs
+  entirely on the in-memory `bytes` it returns — there was no need to add explicit
+  `tempfile` handling to get the "never write to `data/corpus/`" guarantee.
+- **Two independent size limits needed `BodySizeLimitMiddleware` to grow a per-route
+  override.** The existing `API_MAX_BODY_BYTES` (5 MB) bounds the whole `/api/analyze`
+  JSON envelope; a real PDF needs more room than that. Raising the global cap would have
+  loosened the DoS bound on every other route for a limit only this one needs, so
+  `route_overrides` lets `/api/ingest` alone use the larger `API_MAX_UPLOAD_BYTES`
+  (10 MB default). The route handler *also* re-derives the same check against the file's
+  exact decoded size — provably unreachable over real HTTP while both layers use the same
+  number (the multipart envelope can only be ≥ the file it carries), kept anyway as the
+  same belt-and-suspenders shape `_reject_oversized_log` already uses for `/api/analyze`,
+  so this route does not silently depend on transport wiring it does not own.
+- **A separate, much tighter rate limit (5/hour default), layered on top of the general
+  one, not instead of it.** Ingesting a file costs far more per request (embedding +
+  chunking + a Chroma write, on top of everything `/api/analyze` already does) and,
+  unlike an answer, permanently adds to what every future query can retrieve. A second
+  `RateLimiter` instance with its own bucket, attached as a route-level dependency on
+  `/ingest` alongside the router-wide one, keeps the two budgets from sharing state.
+- **The filename is sanitized too, and — unusually — logged.** `source_path`/title
+  fallback are built from the filename, and it is operator-supplied rather than
+  developer-curated, so it goes through `sanitize_text` exactly like the document body
+  before either is stored. It is also the one piece of "user content" this API logs
+  (`upload_filename` in `_EXTRA_FIELDS`): unlike a query or log excerpt, a filename is
+  named by a trusted internal operator, and knowing *which* document changed the shared
+  knowledge base is the entire point of an audit trail for this endpoint. Found and fixed
+  during testing: the field is named `upload_filename`, not `filename` — `filename` is a
+  reserved `logging.LogRecord` attribute (the source `.py` file of the log call itself),
+  and passing it via `extra=` raises `KeyError` at the first real upload once
+  `configure_logging()` sets the root logger to `INFO`. An ad hoc smoke test missed this
+  because it never called `configure_logging()`, so the `INFO` record was filtered out
+  before `extra` was ever validated; the real regression test asserts against
+  `caplog.records`, which runs the record through the same construction path production
+  logging does.
+- **Known limitation: the sparse (BM25) index does not see uploads.** `HybridRetriever`'s
+  BM25 side is built once at startup from `corpus_dir` on disk (`build_bm25_from_corpus`);
+  an upload is added only to the live Chroma collection, per the "never write to
+  `data/corpus/`" constraint above. A newly uploaded chunk is therefore immediately
+  retrievable via the dense side and via RRF fusion (which unions rather than intersects
+  the two rankings), just without a BM25 lexical-match contribution until the process
+  restarts against a repopulated corpus directory — a real but modest degradation (loses
+  the exact-match boost for e.g. an error code in the new document, not the ability to
+  retrieve it at all), not a correctness bug. Rebuilding the in-memory BM25 index on every
+  upload was considered and rejected for this MVP: it is O(corpus size) work on every
+  upload for a gap that only affects lexical-match ranking, not recall.
+- **Known follow-up, not addressed here: prompt injection via uploaded corpus content.**
+  `security/guard.py` inspects the *query* before retrieval; it has never inspected
+  *corpus* content, which was safe while every document was developer-curated. This
+  feature changes that trust boundary — an uploaded document's text is later placed
+  verbatim into an LLM prompt as retrieved context, so adversarial instructions embedded
+  in an uploaded file are not screened by anything today. Not in scope for this change
+  (not requested, and the right screening point — the guard, at ingest time, at prompt-
+  build time — is a real design question of its own), but worth scoping as a follow-up
+  now that the corpus has a second, less-trusted source of content.
+
 ---
 
 ## Retrieval results (2026-07-25, corpus v2 — 56 questions / 172 chunks)

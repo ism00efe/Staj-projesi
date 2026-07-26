@@ -53,6 +53,15 @@ _EXTRA_FIELDS = (
     # `sanitization.py` exists to mask, so the API keys its rate limiter on the address
     # in memory and never logs it.
     "status_code",
+    # POST /api/ingest audit trail. Unlike a query or log excerpt, a filename is not
+    # end-user free text — it is named by a trusted internal operator uploading a
+    # knowledge-base document, and knowing *which* document changed the KB is the whole
+    # point of logging this endpoint. Still bytes, not raw content: nothing here can carry
+    # the six sanitization.py categories the way a query or log body could. Named
+    # `upload_filename`, not `filename`: the latter is a reserved `LogRecord` attribute
+    # (the source .py file of the log call) — passing it via `extra` raises `KeyError`.
+    "upload_filename",
+    "file_size_bytes",
 )
 
 

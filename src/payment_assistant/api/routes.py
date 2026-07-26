@@ -12,22 +12,27 @@ from __future__ import annotations
 import logging
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 
 from ..config import Settings
 from ..observability import API_REQUEST_DURATION, get_trace_id, log_step
+from ..rag import EmptyContent, UnsupportedFileType, extract_text
 from ..service import AssistantService
 from .errors import record_outcome
 from .middleware import RateLimiter, client_key
-from .schemas import AnalyzeRequest, AnalyzeResponse, HealthResponse
+from .schemas import AnalyzeRequest, AnalyzeResponse, HealthResponse, IngestResponse
 
 logger = logging.getLogger(__name__)
 
 _ANALYZE_ENDPOINT = "/api/analyze"
+_INGEST_ENDPOINT = "/api/ingest"
 
 
 def build_router(
-    service: AssistantService, settings: Settings, limiter: RateLimiter | None
+    service: AssistantService,
+    settings: Settings,
+    limiter: RateLimiter | None,
+    upload_limiter: RateLimiter | None = None,
 ) -> APIRouter:
     """Build the ``/api`` router around an already-constructed service."""
 
@@ -61,6 +66,38 @@ def build_router(
                 "message": (
                     f"Çok fazla istek gönderdiniz. Lütfen {retry_after} saniye sonra "
                     "tekrar deneyin."
+                ),
+            },
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    async def enforce_upload_rate_limit(request: Request) -> None:
+        """A second, much tighter budget layered on top of ``enforce_rate_limit``.
+
+        Ingesting a file costs far more than answering a question (embedding + chunking
+        + a Chroma write, on top of everything ``/api/analyze`` already does) and, unlike
+        an answer, permanently adds to what every future query can retrieve — so this is
+        deliberately a separate, smaller bucket rather than a share of the general one.
+        """
+
+        if upload_limiter is None:
+            return
+        wait_seconds = upload_limiter.check(client_key(request, settings.api_trusted_proxy_hops))
+        if wait_seconds is None:
+            return
+
+        retry_after = max(1, math.ceil(wait_seconds))
+        logger.warning(
+            "upload rate limited",
+            extra={"step": "api.upload_rate_limit", "status": "rejected", "status_code": 429},
+        )
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "rate_limited",
+                "message": (
+                    f"Çok fazla belge yükleme isteği gönderdiniz. Lütfen {retry_after} "
+                    "saniye sonra tekrar deneyin."
                 ),
             },
             headers={"Retry-After": str(retry_after)},
@@ -104,13 +141,64 @@ def build_router(
         # user can quote back.
         return AnalyzeResponse.from_answer(answer, fallback_trace_id=get_trace_id())
 
+    @router.post(
+        "/ingest",
+        response_model=IngestResponse,
+        summary="Bilgi tabanına yeni bir belge ekle",
+        dependencies=[Depends(enforce_upload_rate_limit)],
+    )
+    # File(...) as a default is FastAPI's own required idiom for a file parameter.
+    def ingest_document(request: Request, file: UploadFile = File(...)) -> IngestResponse:  # noqa: B008
+        """Add one uploaded document (PDF or plain text) to the knowledge base.
+
+        Declared ``def`` for the same reason as ``analyze``: extracting a PDF, embedding,
+        and writing to Chroma all block. Reads via the underlying ``SpooledTemporaryFile``
+        rather than ``await file.read()`` — this handler already runs off the event loop,
+        so there is nothing to gain from the async form and it would not type-check inside
+        a plain ``def`` function.
+
+        Never resets the collection: ``AssistantService.ingest_document`` only appends, so
+        the corpus loaded at startup is untouched and the new chunks are searchable by the
+        very next query.
+        """
+
+        filename = file.filename or "upload"
+        content = file.file.read()
+        _reject_oversized_upload(len(content), settings)
+
+        try:
+            text = extract_text(filename, content)
+        except EmptyContent as exc:
+            raise HTTPException(
+                status_code=400, detail={"code": "empty_file", "message": str(exc)}
+            ) from exc
+        except UnsupportedFileType as exc:
+            raise HTTPException(
+                status_code=415, detail={"code": "unsupported_file_type", "message": str(exc)}
+            ) from exc
+
+        with API_REQUEST_DURATION.labels(endpoint=_INGEST_ENDPOINT).time():
+            with log_step(
+                "api.ingest", logger, upload_filename=filename, file_size_bytes=len(content)
+            ) as rec:
+                chunks_added, redactions = service.ingest_document(text, filename)
+                rec.set(chunk_count=chunks_added, redaction_count=len(redactions))
+
+        record_outcome(request, "ok")
+        return IngestResponse.build(
+            filename=filename,
+            chunks_added=chunks_added,
+            redactions=redactions,
+            trace_id=get_trace_id(),
+        )
+
     @router.get("/health", response_model=HealthResponse, summary="Servis durumu")
     def health(request: Request) -> HealthResponse:
-        """Liveness plus the two limits a client needs before it submits anything.
+        """Liveness plus the limits a client needs before it submits anything.
 
-        ``max_upload_bytes`` is served rather than hardcoded in each client so the web UI
-        and the Visual Studio extension check against the value this process actually
-        enforces, instead of a copy that drifts out of step with ``config.py``.
+        Limits are served rather than hardcoded in each client so the web UI and the
+        Visual Studio extension check against the values this process actually enforces,
+        instead of a copy that drifts out of step with ``config.py``.
         """
 
         record_outcome(request, "ok")
@@ -118,6 +206,7 @@ def build_router(
             status="ok",
             knowledge_base_size=service.knowledge_base_size(),
             max_upload_bytes=settings.max_upload_bytes,
+            max_document_upload_bytes=settings.api_max_upload_bytes,
         )
 
     return router
@@ -143,5 +232,30 @@ def _reject_oversized_log(file_content: str | None, settings: Settings) -> None:
         detail={
             "code": "payload_too_large",
             "message": f"Log içeriği çok büyük (limit: {limit_mb} MB).",
+        },
+    )
+
+
+def _reject_oversized_upload(size_bytes: int, settings: Settings) -> None:
+    """Re-derive the upload cap against the file's exact decoded size.
+
+    ``BodySizeLimitMiddleware`` already bounds the whole multipart envelope to this same
+    ``api_max_upload_bytes`` limit before this handler runs, and the envelope can only be
+    larger than the file it carries — so in practice this can never fire over real HTTP
+    while that middleware is wired up as it is today. It stays as an explicit, named
+    check anyway: the same belt-and-suspenders shape as ``_reject_oversized_log`` for
+    ``/api/analyze``, so this route does not silently depend on transport-layer wiring it
+    does not control for something as basic as its own size limit.
+    """
+
+    if size_bytes <= settings.api_max_upload_bytes:
+        return
+
+    limit_mb = settings.api_max_upload_bytes // 1_000_000
+    raise HTTPException(
+        status_code=413,
+        detail={
+            "code": "payload_too_large",
+            "message": f"Dosya çok büyük (limit: {limit_mb} MB).",
         },
     )

@@ -24,6 +24,7 @@ from .rag import (
     SentenceTransformerEmbeddings,
     build_bm25_from_corpus,
 )
+from .sanitization import Redaction
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,20 @@ class AssistantService:
 
     def knowledge_base_size(self) -> int:
         return self._engine.corpus_size()
+
+    def ingest_document(self, text: str, filename: str) -> tuple[int, list[Redaction]]:
+        """Add one operator-uploaded document to the knowledge base.
+
+        Chunking uses this service's own configured ``chunk_size``/``chunk_overlap``, so
+        an upload is split the same way the corpus loaded at startup was.
+        """
+
+        return self._engine.ingest_document(
+            text,
+            filename,
+            chunk_size=self._settings.chunk_size,
+            overlap=self._settings.chunk_overlap,
+        )
 
 
 def build_retriever(

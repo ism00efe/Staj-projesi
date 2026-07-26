@@ -56,14 +56,29 @@ def create_app(service: AssistantService, settings: Settings) -> FastAPI:
         if settings.api_rate_limit_enabled
         else None
     )
+    upload_limiter = (
+        RateLimiter(
+            max_requests=settings.api_upload_rate_limit_requests,
+            window_seconds=settings.api_upload_rate_limit_window_seconds,
+        )
+        if settings.api_rate_limit_enabled
+        else None
+    )
 
     # Order matters: the last middleware added is the outermost. TraceIdMiddleware must
     # wrap the body-size check so that a rejected oversized request still carries an id.
     limit_mb = settings.api_max_body_bytes // 1_000_000
+    upload_limit_mb = settings.api_max_upload_bytes // 1_000_000
     app.add_middleware(
         BodySizeLimitMiddleware,
         max_bytes=settings.api_max_body_bytes,
         message=f"İstek çok büyük (limit: {limit_mb} MB).",
+        route_overrides={
+            "/api/ingest": (
+                settings.api_max_upload_bytes,
+                f"Dosya çok büyük (limit: {upload_limit_mb} MB).",
+            )
+        },
     )
     app.add_middleware(TraceIdMiddleware)
 
@@ -76,7 +91,7 @@ def create_app(service: AssistantService, settings: Settings) -> FastAPI:
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
-    app.include_router(build_router(service, settings, limiter))
+    app.include_router(build_router(service, settings, limiter, upload_limiter))
 
     # Constructed eagerly: if the package was installed without its static assets, this
     # raises at startup instead of serving mysterious 404s later.

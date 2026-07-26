@@ -89,6 +89,18 @@ class Settings(BaseSettings):
     # attacker can forge to evade the rate limit.
     api_trusted_proxy_hops: int = Field(default=0)
 
+    # --- HTTP API: knowledge-base document upload (POST /api/ingest) ----------
+    # Per-file cap, checked both by the transport (BodySizeLimitMiddleware, which allows
+    # this one route a larger body than API_MAX_BODY_BYTES) and again in the route handler
+    # against the decoded file's exact size.
+    api_max_upload_bytes: int = Field(default=10_000_000)  # 10 MB
+
+    # Ingestion (embedding + chunking + a Chroma write) costs far more per request than an
+    # /api/analyze call, and adds content a future query will retrieve — so this budget is
+    # deliberately much tighter than the general API limit.
+    api_upload_rate_limit_requests: int = Field(default=5)
+    api_upload_rate_limit_window_seconds: float = Field(default=3600.0)
+
     # --- Logging ----------------------------------------------------------
     log_level: str = Field(default="INFO")
     log_format: str = Field(default="json")  # json | text

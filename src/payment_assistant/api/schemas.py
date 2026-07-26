@@ -16,6 +16,7 @@ import logging
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..models import Answer
+from ..sanitization import Redaction
 from ..security import REFUSAL_MESSAGE
 
 logger = logging.getLogger(__name__)
@@ -135,11 +136,51 @@ class ErrorResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Liveness plus the two facts a client needs before it can submit anything."""
+    """Liveness plus the facts a client needs before it can submit anything."""
 
     status: str
     knowledge_base_size: int
-    max_upload_bytes: int
+    max_upload_bytes: int = Field(description="POST /api/analyze log içeriği için limit.")
+    max_document_upload_bytes: int = Field(description="POST /api/ingest dosyaları için limit.")
+
+
+class IngestResponse(BaseModel):
+    """Result of adding one document to the knowledge base via ``POST /api/ingest``."""
+
+    status: str = Field(description='Başarıda sabit "ok" değeri.')
+    filename: str
+    chunks_added: int = Field(description="Bilgi tabanına eklenen parça (chunk) sayısı.")
+    redactions: list[RedactionItem]
+    redaction_total: int
+    trace_id: str = Field(description="Bu isteğin izleme kimliği; log kayıtlarıyla eşleşir.")
+
+    @classmethod
+    def build(
+        cls, *, filename: str, chunks_added: int, redactions: list[Redaction], trace_id: str
+    ) -> IngestResponse:
+        items = _merge_redactions(redactions)
+        return cls(
+            status="ok",
+            filename=filename,
+            chunks_added=chunks_added,
+            redactions=items,
+            redaction_total=sum(item.count for item in items),
+            trace_id=trace_id,
+        )
+
+
+def _merge_redactions(redactions: list[Redaction]) -> list[RedactionItem]:
+    """Combine same-label counts into one entry.
+
+    The filename and the document text are sanitized separately (see
+    ``rag.ingestion.ingest_single_document``), so the same category can appear twice —
+    e.g. an email in both the filename and the body — and should be reported once.
+    """
+
+    totals: dict[str, int] = {}
+    for r in redactions:
+        totals[r.label] = totals.get(r.label, 0) + r.count
+    return [RedactionItem(label=label, count=count) for label, count in totals.items()]
 
 
 def _build_sources(answer: Answer) -> list[SourceItem]:

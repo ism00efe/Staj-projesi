@@ -1,21 +1,37 @@
 """Corpus ingestion: load -> sanitize -> chunk -> embed -> index.
 
-This is the offline pipeline that populates the vector store. It is intentionally
-agnostic about whether the corpus is synthetic or real: it only reads files from a
-directory. Swapping in real enterprise documents means pointing ``CORPUS_DIR`` elsewhere.
+Two entry points populate the vector store. ``ingest`` is the offline pipeline that reads
+every file under a directory (the corpus loaded at startup); it is intentionally agnostic
+about whether the corpus is synthetic or real, and swapping in real enterprise documents
+means pointing ``CORPUS_DIR`` elsewhere. ``ingest_single_document`` is the online
+counterpart the upload API calls: same sanitize -> chunk -> embed steps, but for one
+already-in-memory document appended to an existing collection, never touching disk.
 """
 
 from __future__ import annotations
 
+import io
 import logging
 from pathlib import Path
+from uuid import uuid4
+
+import filetype
 
 from ..models import Chunk, Document
-from ..sanitization import sanitize
+from ..sanitization import Redaction, sanitize, sanitize_text
 from .embeddings import EmbeddingProvider
 from .vectorstore import VectorStore
 
 logger = logging.getLogger(__name__)
+
+
+class UnsupportedFileType(ValueError):
+    """Uploaded content doesn't match an accepted, content-verified file type."""
+
+
+class EmptyContent(ValueError):
+    """Uploaded content — or the text extracted from it — is empty."""
+
 
 # Filename prefix -> document type. Keeps ingestion trivial and metadata clean (A3).
 _PREFIX_TO_TYPE = {
@@ -30,6 +46,66 @@ _PREFIX_TO_TYPE = {
 }
 
 _TEXT_SUFFIXES = {".md", ".txt", ".json", ".xml", ".log"}
+_UPLOAD_SUFFIXES = _TEXT_SUFFIXES | {".pdf"}
+
+
+def _extract_pdf_text(content: bytes) -> str:
+    from pypdf import PdfReader
+
+    try:
+        reader = PdfReader(io.BytesIO(content))
+        pages = [page.extract_text() or "" for page in reader.pages]
+    except Exception as exc:
+        # pypdf raises several distinct error types (PdfReadError, and plain ValueError /
+        # KeyError from malformed structures) for a corrupt or non-standard PDF. All of
+        # them mean the same thing to this caller: the bytes could not be read as a PDF.
+        raise UnsupportedFileType(f"PDF içeriği okunamadı: {exc}") from exc
+    return "\n\n".join(p for p in pages if p.strip())
+
+
+def extract_text(filename: str, content: bytes) -> str:
+    """Validate an uploaded file's content and extract its plain text.
+
+    Validated by content, not the filename's extension. ``filetype.guess`` inspects magic
+    bytes: a claimed ``.pdf`` must carry a real PDF signature, and content matching some
+    *other* concrete binary signature (image, archive, executable, ...) is rejected
+    outright, since none of the accepted formats are meant to be binary. Plain-text
+    formats have no signature of their own — ``filetype.guess`` returns ``None`` for them
+    by design — so those are instead validated by requiring a clean UTF-8 decode, which
+    rejects binary garbage renamed with a text extension the same way.
+    """
+
+    suffix = Path(filename).suffix.lower()
+    if suffix not in _UPLOAD_SUFFIXES:
+        allowed = ", ".join(sorted(_UPLOAD_SUFFIXES))
+        raise UnsupportedFileType(
+            f"Desteklenmeyen dosya türü '{suffix or '(uzantısız)'}'. "
+            f"Desteklenen türler: {allowed}"
+        )
+    if not content:
+        raise EmptyContent("Yüklenen dosya boş.")
+
+    kind = filetype.guess(content)
+    if kind is not None:
+        if suffix != ".pdf" or kind.extension != "pdf":
+            raise UnsupportedFileType(
+                f"Dosya içeriği '.{kind.extension}' olarak algılandı, bu '{suffix}' "
+                "uzantısıyla eşleşmiyor ve kabul edilemez."
+            )
+        text = _extract_pdf_text(content)
+    elif suffix == ".pdf":
+        raise UnsupportedFileType("Dosya '.pdf' uzantılı ama bir PDF imzası taşımıyor.")
+    else:
+        try:
+            text = content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise UnsupportedFileType(
+                "Dosya metne dönüştürülemedi (ikili veya bozuk içerik)."
+            ) from exc
+
+    if not text.strip():
+        raise EmptyContent("Dosyadan çıkarılabilecek metin bulunamadı.")
+    return text
 
 
 def _infer_doc_type(filename: str) -> str:
@@ -176,3 +252,47 @@ def ingest(
     store.add(chunks, embeddings)
     logger.info("Indexed %d chunks from %d documents.", len(chunks), len(documents))
     return len(chunks)
+
+
+def ingest_single_document(
+    text: str,
+    filename: str,
+    embedder: EmbeddingProvider,
+    store: VectorStore,
+    *,
+    chunk_size: int,
+    overlap: int,
+) -> tuple[int, list[Redaction]]:
+    """Sanitize, chunk, embed, and add ONE document to an existing collection.
+
+    The online counterpart to :func:`ingest`, used by the upload API. Never touches disk
+    and never resets the store — ``store.add`` only appends, so the corpus loaded at
+    startup is untouched. Both ``text`` and ``filename`` are sanitized: the filename ends
+    up in stored metadata (title fallback, ``source_path``) and is operator-supplied, not
+    developer-curated like a corpus path, so it gets the same guarantee as document text.
+
+    The id gets a random suffix rather than reusing the filename stem the way corpus
+    ingestion does: corpus ids only need to be unique within one directory listing, but an
+    upload lands in a collection that may already hold any id, and colliding would either
+    overwrite an existing document's chunks or fail outright depending on the store.
+    """
+
+    clean_filename, filename_redactions = sanitize_text(filename)
+    clean_text, text_redactions = sanitize_text(text)
+    redactions = filename_redactions + text_redactions
+
+    doc = Document(
+        id=f"upload_{uuid4().hex[:12]}",
+        title=_infer_title(clean_text, Path(clean_filename).stem),
+        doc_type=_infer_doc_type(clean_filename),
+        text=clean_text,
+        source_path=f"uploads/{clean_filename}",
+    )
+    chunks = chunk_document(doc, chunk_size, overlap)
+    if not chunks:
+        return 0, redactions
+
+    embeddings = embedder.embed_documents([c.text for c in chunks])
+    store.add(chunks, embeddings)
+    logger.info("Indexed %d chunks from uploaded document '%s'.", len(chunks), doc.id)
+    return len(chunks), redactions

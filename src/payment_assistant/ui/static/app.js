@@ -23,11 +23,17 @@
   var securityEl = document.getElementById("security");
   var traceIdEl = document.getElementById("trace-id");
 
+  var kbFileEl = document.getElementById("kb-file");
+  var kbFileStatusEl = document.getElementById("kb-file-status");
+  var kbUploadBtn = document.getElementById("kb-upload");
+  var kbUploadStatusEl = document.getElementById("kb-upload-status");
+
   // Server-supplied so the client checks against the limit this process actually
   // enforces rather than a copy that drifts from config.py. Null until /api/health
   // answers; the server re-checks regardless, so a missed client-side check is only a
   // worse error message, never a bypass.
   var maxUploadBytes = null;
+  var maxDocumentUploadBytes = null;
 
   /* ------------------------------------------------------------- escaping */
 
@@ -72,6 +78,33 @@
     hide(securityCardEl);
     traceIdEl.textContent = "—";
     show(resultsEl);
+  }
+
+  function formatBytes(bytes) {
+    if (bytes >= 1000000) { return (bytes / 1000000).toFixed(1) + " MB"; }
+    if (bytes >= 1000) { return Math.round(bytes / 1000) + " KB"; }
+    return bytes + " B";
+  }
+
+  function setKbUploadStatus(text, variant) {
+    kbUploadStatusEl.textContent = text;
+    kbUploadStatusEl.className = "kb-update__status" + (variant ? " kb-update__status--" + variant : "");
+    kbUploadStatusEl.hidden = !text;
+  }
+
+  // Server-supplied limits/counts, fetched at load and refreshed after a successful
+  // upload. Best-effort: the page stays fully usable if this fails, since both upload
+  // paths are re-checked server-side regardless of what the client saw here.
+  function refreshHealth() {
+    return fetch("/api/health")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (health) {
+        if (!health) { return; }
+        maxUploadBytes = health.max_upload_bytes;
+        maxDocumentUploadBytes = health.max_document_upload_bytes;
+        kbStatusEl.textContent = health.knowledge_base_size + " kaynak parçası indekslendi.";
+      })
+      .catch(function () { /* offline health check is not worth surfacing */ });
   }
 
   function readFileAsText(file) {
@@ -262,6 +295,79 @@
     questionEl.focus();
   });
 
+  // Selecting a file never uploads on its own — the user always triggers the request.
+  kbFileEl.addEventListener("change", function () {
+    var file = kbFileEl.files && kbFileEl.files[0];
+    setKbUploadStatus("", null);
+    if (!file) {
+      kbFileStatusEl.textContent = "Dosya seçilmedi.";
+      kbFileStatusEl.className = "file__status";
+      kbUploadBtn.disabled = true;
+      return;
+    }
+    if (maxDocumentUploadBytes !== null && file.size > maxDocumentUploadBytes) {
+      kbFileStatusEl.textContent =
+        "✕ " + file.name + " (" + formatBytes(file.size) + ") — çok büyük (limit: " +
+        Math.floor(maxDocumentUploadBytes / 1000000) + " MB)";
+      kbFileStatusEl.className = "file__status file__status--error";
+      kbUploadBtn.disabled = true;
+      return;
+    }
+    kbFileStatusEl.textContent = file.name + " (" + formatBytes(file.size) + ")";
+    kbFileStatusEl.className = "file__status file__status--set";
+    kbUploadBtn.disabled = false;
+  });
+
+  kbUploadBtn.addEventListener("click", function () {
+    var file = kbFileEl.files && kbFileEl.files[0];
+    if (!file) { return; }
+
+    kbUploadBtn.disabled = true;
+    kbFileEl.disabled = true;
+    setKbUploadStatus("Yükleniyor…", "busy");
+
+    var formData = new FormData();
+    formData.append("file", file);
+
+    // XMLHttpRequest, not fetch: its upload.onload event fires once the file has been
+    // fully transmitted, which is the one reliable signal that any further wait is the
+    // server sanitizing/chunking/embedding/writing to Chroma, not network transfer — the
+    // "İndeksleniyor…" phase has no other observable start on the client.
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/ingest");
+
+    xhr.upload.addEventListener("load", function () {
+      setKbUploadStatus("İndeksleniyor…", "busy");
+    });
+
+    xhr.onload = function () {
+      var body = null;
+      try { body = JSON.parse(xhr.responseText); } catch (err) { body = null; }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        setKbUploadStatus(
+          messageForStatus(xhr.status, body, xhr.getResponseHeader("Retry-After")), "error"
+        );
+        kbUploadBtn.disabled = false;
+      } else {
+        setKbUploadStatus("Tamamlandı (" + body.chunks_added + " chunk eklendi).", "ok");
+        kbFileEl.value = "";
+        kbFileStatusEl.textContent = "Dosya seçilmedi.";
+        kbFileStatusEl.className = "file__status";
+        refreshHealth();
+      }
+      kbFileEl.disabled = false;
+    };
+
+    xhr.onerror = function () {
+      setKbUploadStatus("Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.", "error");
+      kbUploadBtn.disabled = false;
+      kbFileEl.disabled = false;
+    };
+
+    xhr.send(formData);
+  });
+
   Array.prototype.forEach.call(document.querySelectorAll(".chip"), function (chip) {
     chip.addEventListener("click", function () {
       questionEl.value = chip.textContent.trim();
@@ -284,13 +390,5 @@
     target.classList.add("source--flash");
   });
 
-  // Best-effort: the page stays fully usable if this fails.
-  fetch("/api/health")
-    .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (health) {
-      if (!health) { return; }
-      maxUploadBytes = health.max_upload_bytes;
-      kbStatusEl.textContent = health.knowledge_base_size + " kaynak parçası indekslendi.";
-    })
-    .catch(function () { /* offline health check is not worth surfacing */ });
+  refreshHealth();
 })();

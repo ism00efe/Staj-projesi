@@ -27,9 +27,10 @@ from ..observability import (
     instrumented_step,
     record_redactions,
 )
-from ..sanitization import sanitize_text
+from ..sanitization import Redaction, sanitize_text
 from ..security import REFUSAL_MESSAGE, inspect_query
 from .embeddings import EmbeddingProvider
+from .ingestion import ingest_single_document
 from .logs import summarize_log
 from .prompts import SYSTEM_PROMPT, build_user_prompt
 from .retriever import DenseRetriever, Retriever
@@ -71,6 +72,21 @@ class RAGEngine:
         """Number of indexed chunks currently searchable."""
 
         return self._store.count()
+
+    def ingest_document(
+        self, text: str, filename: str, *, chunk_size: int, overlap: int
+    ) -> tuple[int, list[Redaction]]:
+        """Sanitize, chunk, embed, and add one operator-uploaded document.
+
+        Delegates to :func:`ingest_single_document` using this engine's own embedder and
+        store — the same instances ``retrieve``/``answer`` already search — so an upload
+        is visible to the very next query without reloading any model or reconnecting to
+        Chroma. Never resets the store; corpus documents loaded at startup are untouched.
+        """
+
+        return ingest_single_document(
+            text, filename, self._embedder, self._store, chunk_size=chunk_size, overlap=overlap
+        )
 
     def retrieve(self, query: str, top_k: int | None = None) -> list[RetrievedChunk]:
         """Retrieve the most relevant chunks for an already-sanitized query."""
