@@ -165,6 +165,7 @@ All settings live in `.env` (see [`.env.example`](.env.example)). Key ones:
 | `LLM_PROVIDER` | `ollama` | `ollama` \| `anthropic` \| `openai` |
 | `OLLAMA_MODEL` | `qwen2.5:7b-instruct` | Local model (strong Turkish, fits 8 GB VRAM) |
 | `EMBEDDING_MODEL` | `intfloat/multilingual-e5-small` | Local multilingual embeddings |
+| `EMBEDDING_DEVICE` | `cpu` | Device for the embedding model (`cpu`\|`cuda`); default keeps VRAM free for the LLM/reranker |
 | `CHROMA_PERSIST_DIR` | `./data/chroma` | Vector store location |
 | `CORPUS_DIR` | `./data/corpus` | Knowledge-base documents |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `500` / `80` | Chunking (characters) |
@@ -472,6 +473,29 @@ default**: with CUDA torch it costs ~0.13s/query (measured on an RTX 4060, even 
 7B Ollama model resident); with CPU-only torch it costs ~6s/query instead — set
 `RERANK_ENABLED=false` if that's too slow for your hardware. Full per-category numbers
 and the CUDA setup are in [`DECISIONS.md`](DECISIONS.md) (D15).
+
+## Benchmarks
+
+Full pipeline (sanitize → guard → retrieve → rerank → generate → cite), timed end to end
+per question via [`scripts/benchmark.py`](scripts/benchmark.py) against the same
+56-question labeled set, at three fixed configurations (methodology and rationale:
+[`DECISIONS.md`](DECISIONS.md) D26):
+
+| Hardware | Tier | Recall@5 | MRR | Citation Precision | Groundedness | Latency p50 (s) | Latency p95 (s) | Peak GPU Mem (MB) | Status |
+|---|---|---|---|---|---|---|---|---|---|
+| RTX 4060 Laptop GPU, 8 GB | fast (dense-only, `qwen2.5:0.5b-instruct`) | 0.714 | 0.656 | 0.153 | 1.000 | 5.13 | 7.16 | 2690 | OK |
+| RTX 4060 Laptop GPU, 8 GB | balanced (hybrid, no re-rank, `qwen2.5:7b-instruct`) | 0.786 | 0.696 | 0.473 | 1.000 | 19.24 | 35.26 | 7604 | OK |
+| RTX 4060 Laptop GPU, 8 GB | full-quality (hybrid + re-rank, `qwen2.5:7b-instruct`) | — | — | — | — | — | — | — | Not run locally (OOM risk — see D26) |
+
+`full-quality` is measured on a free Colab T4 instead (`colab/colab_benchmark.ipynb`) —
+`balanced` alone already peaks at 7604 MB of this card's 8188 MB, and stacking the
+~2.2 GB cross-encoder re-ranker on top doesn't fit. Its row will be added here once run.
+
+Full results, including the MRR-by-category breakdown:
+[`benchmark_results.md`](benchmark_results.md). A concurrent load-test report
+([`load_test_results.md`](load_test_results.md)) is produced by
+[`scripts/load_test.py`](scripts/load_test.py) against `POST /api/analyze` and
+`GET /api/health` — see that file for methodology and current results.
 
 ## Docker
 
