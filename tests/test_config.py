@@ -12,9 +12,16 @@ def test_defaults():
     assert s.llm_provider == "ollama"
     assert s.ollama_model == "qwen2.5:7b-instruct"
     assert s.embedding_model == "intfloat/multilingual-e5-small"
+    assert s.embedding_device == "cpu"
     assert s.top_k == 4
     assert s.chunk_size == 500  # finer chunks so re-ranking has a real candidate pool
     assert s.chunk_overlap == 80
+
+
+def test_embedding_device_env_override(monkeypatch):
+    monkeypatch.setenv("EMBEDDING_DEVICE", "cuda")
+    s = Settings(_env_file=None)
+    assert s.embedding_device == "cuda"
 
 
 def test_retrieval_defaults():

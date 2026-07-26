@@ -17,7 +17,9 @@ def main() -> None:
     configure_logging()
     settings = get_settings()
 
-    embedder = SentenceTransformerEmbeddings(settings.embedding_model)
+    embedder = SentenceTransformerEmbeddings(
+        settings.embedding_model, device=settings.embedding_device
+    )
     store = ChromaVectorStore(settings.chroma_persist_dir, settings.chroma_collection)
 
     count = ingest(

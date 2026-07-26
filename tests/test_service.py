@@ -153,6 +153,24 @@ def test_build_service_wires_dependencies(monkeypatch):
     assert ans.text  # non-empty response from the fake LLM
 
 
+def test_build_service_passes_embedding_device(monkeypatch):
+    captured: dict = {}
+
+    def fake_embeddings(*args, **kwargs):
+        captured["kwargs"] = kwargs
+        return FakeEmbeddings()
+
+    monkeypatch.setattr(service_module, "SentenceTransformerEmbeddings", fake_embeddings)
+    monkeypatch.setattr(service_module, "ChromaVectorStore",
+                        lambda *a, **k: FakeVectorStore([make_chunk("a")]))
+    monkeypatch.setattr(service_module, "build_llm_provider", lambda s: FakeLLM())
+
+    build_service(_settings(
+        hybrid_enabled=False, rerank_enabled=False, embedding_device="cuda",
+    ))
+    assert captured["kwargs"] == {"device": "cuda"}
+
+
 def test_build_service_starts_metrics_server_when_enabled(monkeypatch):
     monkeypatch.setattr(service_module, "SentenceTransformerEmbeddings",
                         lambda *a, **k: FakeEmbeddings())

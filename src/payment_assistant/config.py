@@ -41,6 +41,9 @@ class Settings(BaseSettings):
 
     # --- Embeddings -----------------------------------------------------------
     embedding_model: str = Field(default="intfloat/multilingual-e5-small")
+    # Defaults to CPU, not auto-detected CUDA: frees VRAM for the resident Ollama LLM
+    # (and reranker, when enabled) on memory-constrained GPUs. See DECISIONS.md D27.
+    embedding_device: str = Field(default="cpu")
 
     # --- Vector store ---------------------------------------------------------
     chroma_persist_dir: str = Field(default="./data/chroma")

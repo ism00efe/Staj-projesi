@@ -766,6 +766,76 @@ Non-critical implementation assumptions are appended at the bottom as they are m
   build time — is a real design question of its own), but worth scoping as a follow-up
   now that the corpus has a second, less-trusted source of content.
 
+## D26 — Three-tier benchmark methodology; `full-quality` measured on Colab, not locally
+- **What:** `scripts/benchmark.py` measures the pipeline at three fixed configurations
+  against the labeled `eval/dataset.jsonl` set: `fast` (dense-only retrieval,
+  `qwen2.5:0.5b-instruct`), `balanced` (hybrid dense+BM25 retrieval, RRF-fused, no
+  re-ranker, `qwen2.5:7b-instruct`), and `full-quality` (hybrid + cross-encoder re-rank,
+  `qwen2.5:7b-instruct`). Each tier reuses `eval/evaluate.py`'s own scoring functions for
+  retrieval metrics (recall@1/3/5, MRR) so the two scripts can never silently disagree,
+  then runs one `AssistantService.ask()` call per question end-to-end (sanitize -> guard
+  -> retrieve -> rerank -> generate -> cite), timing each individually for median/p95
+  latency and scoring citation precision/groundedness the same way `eval/evaluate.py
+  --with-llm` does. Writes a Markdown comparison table to `benchmark_results.md`.
+- **Why three tiers, not one number.** "The RAG pipeline's latency/quality" isn't one
+  number -- it depends on which retrieval/re-rank/LLM-size knobs are set, and every knob
+  here is independently configurable (`HYBRID_ENABLED`, `RERANK_ENABLED`, `OLLAMA_MODEL`).
+  Three fixed, named configurations give a reader something concrete instead of an
+  unbounded knob space: cheapest-viable (`fast`), a mid-range config with no re-ranker
+  (`balanced`), and the project's actual default / best-measured-quality config
+  (`full-quality` -- hybrid + re-rank measures MRR 0.866 vs hybrid-only's 0.696, per the
+  retrieval results already in this file).
+- **`full-quality` is measured on a Colab T4 (`colab/colab_benchmark.ipynb`), not the
+  local RTX 4060 Laptop (8 GB).** The cross-encoder re-ranker (~2.2 GB, D15) stacked on a
+  resident 7B Ollama model is a documented risk on an 8 GB card; a local run of exactly
+  this tier crashed the machine outright on 2026-07-26 (see below) -- not a graceful CUDA
+  `OutOfMemoryError` the script's own `_looks_like_oom` handling could catch and report as
+  a row, but something that killed the process itself before it even finished
+  retrieval-quality scoring for the tier, let alone reached any LLM call. Rather than keep
+  retrying against hardware that is already known to be tight for this configuration,
+  `full-quality` numbers come from a free Colab T4 (16 GB) runtime instead, via the
+  self-contained notebook, which runs the exact same `scripts/benchmark.py --tier
+  full-quality` so the row is directly comparable. The local `benchmark_results.md`
+  records `full-quality` as not run locally (OOM risk on 8 GB), pointing to the Colab row.
+- **`--tier` accepts multiple values** (`--tier fast balanced`), added alongside this
+  decision so a hardware-constrained machine can run everything it safely can in one
+  invocation (one shared embedder/store load) while excluding `full-quality` outright,
+  instead of needing three separate single-tier invocations or a code fork.
+- **The crash, for the record:** running all three tiers locally on 2026-07-26, `fast`
+  and `balanced` both completed cleanly (56/56 questions each); `full-quality` loaded the
+  reranker fine and got partway through its retrieval-scoring pass (before any LLM call
+  for that tier) when the process was killed outright -- no Python exception, no logged
+  OOM, the log simply stops mid-batch. Whatever killed it took the whole session with it.
+  This decision (Colab for `full-quality`) is the direct response; D27's
+  `EMBEDDING_DEVICE=cpu` default is related but separate headroom, not a fix for this
+  specific crash -- the embedder was resident on GPU during the two tiers that completed
+  without any issue.
+
+## D27 — Embedding model defaults to CPU, not auto-detected CUDA
+- **What:** `EMBEDDING_DEVICE` (`.env.example`, `Settings.embedding_device`, default
+  `"cpu"`) is threaded through every `SentenceTransformerEmbeddings(...)` call site
+  (`service.py`, `scripts/ingest.py`, `scripts/benchmark.py`, `eval/evaluate.py`) into the
+  constructor's existing `device` keyword, which every call site previously left as
+  `None` — sentence-transformers' own auto-detect, which silently picks `cuda:0` whenever
+  a GPU is visible.
+- **Why:** on an 8 GB laptop GPU, the resident 7B Ollama model already uses most of the
+  VRAM budget, and the cross-encoder reranker (~2.2 GB, D15) on top of that is a
+  documented OOM risk. `multilingual-e5-small` is small and is not the proven cause of any
+  specific measured crash (see D26), but it was one more process competing for the same
+  pool for a task that was never latency-sensitive enough to need the GPU — single short
+  queries/chunks, not large batches. Cheap insurance after a session that crashed the
+  machine outright running the benchmark's `full-quality` tier.
+- **Measured (RTX 4060 Laptop, 8 GB; Ollama resident, idle):** baseline GPU memory ~1.71 GB
+  used. Loading the E5 model and running one `embed_query` with the new default
+  (`EMBEDDING_DEVICE=cpu`): still ~1.70 GB — no measurable change. Forcing the old,
+  implicit behavior (`EMBEDDING_DEVICE=cuda`): ~2.30 GB — the embedding model alone costs
+  ~600 MB of VRAM once loaded on this hardware, now freed by default.
+- **Still overridable per deployment.** `EMBEDDING_DEVICE=cuda` restores the old behavior
+  on hardware with headroom to spare (a desktop GPU, or a machine not also running the
+  LLM/reranker locally); CPU inference for this model is fast in absolute terms (small
+  model, small batches — unlike the reranker, where D15 measured CPU at ~46x slower than
+  CUDA), so the default costs little even where the override isn't needed.
+
 ---
 
 ## Retrieval results (2026-07-25, corpus v2 — 56 questions / 172 chunks)

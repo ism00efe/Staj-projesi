@@ -181,7 +181,9 @@ def main() -> None:
     settings = get_settings()
     dataset = load_dataset()
 
-    embedder = SentenceTransformerEmbeddings(settings.embedding_model)
+    embedder = SentenceTransformerEmbeddings(
+        settings.embedding_model, device=settings.embedding_device
+    )
     store = ChromaVectorStore(settings.chroma_persist_dir, settings.chroma_collection)
     if store.count() == 0:
         raise SystemExit("Vector store is empty. Run `python scripts/ingest.py` first.")

@@ -149,7 +149,9 @@ def build_service(settings: Settings | None = None) -> AssistantService:
     if settings.metrics_enabled:
         start_metrics_server(settings.metrics_port)
 
-    embedder = SentenceTransformerEmbeddings(settings.embedding_model)
+    embedder = SentenceTransformerEmbeddings(
+        settings.embedding_model, device=settings.embedding_device
+    )
     store = ChromaVectorStore(settings.chroma_persist_dir, settings.chroma_collection)
     llm = build_llm_provider(settings)
     retriever = build_retriever(settings, embedder, store)
