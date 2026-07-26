@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
@@ -48,6 +49,9 @@ namespace PaymentAssistant.Commands
             var options = (GeneralOptionsPage)package.GetDialogPage(typeof(GeneralOptionsPage));
             string baseUrl = options.ApiBaseUrl;
 
+            // Started before the thread hop so the reported figure is the round trip the
+            // user actually waits through, not just the server's share of it.
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 var client = new PaymentAssistantClient(baseUrl);
@@ -59,9 +63,10 @@ namespace PaymentAssistant.Commands
                 AnalyzeResponse response = await client
                     .AnalyzeAsync(query, fileContent, package.DisposalToken)
                     .ConfigureAwait(false);
+                stopwatch.Stop();
 
                 await package.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
-                control.ShowResult(response);
+                control.ShowResult(response, stopwatch.Elapsed);
             }
             catch (OperationCanceledException)
             {
@@ -69,11 +74,13 @@ namespace PaymentAssistant.Commands
             }
             catch (PaymentAssistantApiException ex)
             {
+                stopwatch.Stop();
                 await package.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
-                control.ShowError(ex.Message, ex.TraceId);
+                control.ShowError(ex.Message, ex.TraceId, stopwatch.Elapsed);
             }
             catch (Exception ex)
             {
+                stopwatch.Stop();
                 await package.JoinableTaskFactory.SwitchToMainThreadAsync(package.DisposalToken);
                 control.ShowError(
                     string.Format(
@@ -81,7 +88,8 @@ namespace PaymentAssistant.Commands
                         "Payment Assistant altından API adresini kontrol edin ve servisin " +
                         "çalıştığından emin olun.",
                         ex.Message, baseUrl, Environment.NewLine),
-                    null);
+                    null,
+                    stopwatch.Elapsed);
             }
         }
 

@@ -74,7 +74,24 @@ Default `http://127.0.0.1:7860`. This must point at a running Payment Assistant 
 | Solution Explorer context menu | *Analyze with Payment Assistant* | Visible only on `.log`/`.json`/`.xml`. Confirms first, then sends the whole file. |
 
 Results appear in the **Payment Assistant** tool window (View → Other Windows if it is
-closed). It is dockable and Visual Studio restores it across sessions.
+closed). It is dockable and Visual Studio restores it across sessions. The window shows
+the answer, the sources behind it, the security summary, and **`Yanıt süresi`** — the
+round-trip time in seconds, measured client-side so it reflects the wait as experienced,
+not just the server's share.
+
+### Why sources usually can't be opened as files
+
+`source_path` names a document inside the server's knowledge base — `runbook_rc51.md`,
+`log_rc51.json` — not a file on your disk. For the synthetic corpus nothing at that path
+exists locally, and even with a real corpus the service may run on another host.
+
+Selecting a source therefore shows its title, type, relevance score and the excerpt the
+API returned, with a line explaining that the document lives in the knowledge base. The
+tool window only offers "double-click to open" when the path is **rooted and actually
+exists** on this machine, which is the one case where opening can succeed. Earlier
+behaviour — attempting the open and reporting *"kaynak dosya bu makinede bulunamadı"* —
+presented a normal, expected condition as a failure, and gave the user nothing usable in
+its place.
 
 ### Data handling
 

@@ -656,6 +656,22 @@ Non-critical implementation assumptions are appended at the bottom as they are m
 - **Why `ErrorCodeScanner` has no VS dependency:** it is the only class here with real
   logic rather than shell plumbing, so keeping it a plain static class leaves the one
   piece worth testing testable without an IDE.
+- **Sources are shown, not opened.** `source_path` identifies a document in the server's
+  knowledge base, not a file on the client's disk — for the synthetic corpus nothing at
+  that path exists locally, and even against a real corpus the service may be on another
+  host. The first version tried to open it and reported "kaynak dosya bu makinede
+  bulunamadı" on failure, which turned the *normal* case into an error message and left
+  the user with nothing. Selecting a source now shows its title, type, score and the
+  excerpt the API already returns, plus one line saying where the document actually
+  lives; opening is offered only when the path is rooted **and** exists locally. The
+  alternative considered — having the client fall back to a web-UI source view — was
+  rejected because no such view exists and neither the API nor the UI serves document
+  bodies, so it would have meant a new endpoint to solve a display problem the existing
+  `excerpt` field already solves.
+- **Round-trip time is displayed** (`Yanıt süresi`), measured client-side around the
+  whole call rather than taken from a server field, because the number that matters is
+  the one the user waits through — including transport. It is shown on failure too: "it
+  timed out after 180 s" and "it failed instantly" are different bug reports.
 - **CI is untouched, for now:** `ubuntu-latest` cannot build a VSIX. Now that the build
   is known-good on Build Tools, a `windows-latest` job running the same
   `msbuild /restore` line is a cheap, worthwhile follow-up — it was only skipped

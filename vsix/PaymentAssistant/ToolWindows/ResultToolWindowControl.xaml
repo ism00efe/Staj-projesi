@@ -23,11 +23,16 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Status line: idle / busy / error -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+        <!-- Status line: idle / busy / error, plus how long the last call took -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,6">
             <TextBlock x:Name="StatusText"
                        Text="Analiz bekleniyor."
                        TextWrapping="Wrap" />
+            <TextBlock x:Name="DurationText"
+                       Opacity="0.75"
+                       TextWrapping="Wrap"
+                       Visibility="Collapsed"
+                       Text="" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -45,11 +50,12 @@
                            Text="Kullanılan Kaynaklar"
                            Style="{StaticResource SectionHeader}" />
                 <ListBox x:Name="SourcesList"
-                         MaxHeight="240"
+                         MaxHeight="200"
+                         SelectionChanged="OnSourceSelectionChanged"
                          MouseDoubleClick="OnSourceDoubleClick"
                          Background="Transparent"
                          BorderThickness="0"
-                         ToolTip="Bir kaynağa çift tıklayarak dosyayı açın.">
+                         ToolTip="Ayrıntı için bir kaynağa tıklayın.">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,2">
@@ -61,6 +67,35 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <!-- Selected-source detail. Knowledge-base documents live on the server,
+                     not on this machine, so the usual "open the file" action is only
+                     offered when the path actually resolves locally. Otherwise the
+                     content is shown here instead of failing with an error. -->
+                <Border x:Name="SourceDetailPanel"
+                        Visibility="Collapsed"
+                        Margin="0,6,0,0"
+                        Padding="8"
+                        BorderThickness="1"
+                        BorderBrush="{DynamicResource {x:Static vsshell:VsBrushes.ActiveBorderKey}}">
+                    <StackPanel>
+                        <TextBlock x:Name="SourceDetailTitle"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="SourceDetailMeta"
+                                   Opacity="0.75"
+                                   TextWrapping="Wrap"
+                                   Margin="0,2,0,0" />
+                        <TextBlock x:Name="SourceDetailExcerpt"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+                        <TextBlock x:Name="SourceDetailHint"
+                                   Opacity="0.75"
+                                   FontStyle="Italic"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+                    </StackPanel>
+                </Border>
 
                 <TextBlock Text="Güvenlik Özeti" Style="{StaticResource SectionHeader}" />
                 <TextBlock x:Name="SecurityText" TextWrapping="Wrap" Text="—" />
